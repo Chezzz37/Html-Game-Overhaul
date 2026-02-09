@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Age Converter</title>
+<link href="https://fonts.googleapis.com/css2?family=Audiowide&display=swap" rel="stylesheet">
+<style>
+  body {
+    margin: 0;
+    background: #000;
+    color: #00ffcc;
+    font-family: 'Audiowide', cursive;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    overflow: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: -50%;
+    background: radial-gradient(circle at 30% 40%, rgba(0,255,204,0.25), transparent 40%),
+                radial-gradient(circle at 70% 60%, rgba(0,170,255,0.25), transparent 40%);
+    animation: moveGlow 18s linear infinite;
+    z-index: 0;
+  }
+
+  @keyframes moveGlow {
+    0% { transform: translate(0,0) rotate(0deg); }
+    50% { transform: translate(10%, -10%) rotate(180deg); }
+    100% { transform: translate(0,0) rotate(360deg); }
+  }
+
+  .panel {
+    position: relative;
+    z-index: 1;
+    background: rgba(0, 40, 40, 0.35);
+    backdrop-filter: blur(12px);
+    border: 2px solid rgba(0,255,204,0.5);
+    border-radius: 24px;
+    padding: 30px;
+    text-align: center;
+    box-shadow: 0 0 30px rgba(0,255,204,0.25);
+    width: 90%;
+    max-width: 900px;
+  }
+
+  input {
+    padding: 10px;
+    font-size: 18px;
+    margin-bottom: 15px;
+    text-align: center;
+    background: #000;
+    color: #00ffcc;
+    border: 2px solid #00ffcc;
+  }
+
+  .mode-buttons button {
+    padding: 10px 14px;
+    margin: 4px;
+    font-family: 'Audiowide', cursive;
+    background: black;
+    color: #00ffcc;
+    border: 2px solid #00ffcc;
+    cursor: pointer;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 18px;
+    margin-bottom: 25px;
+  }
+
+  .animal {
+    border-radius: 16px;
+    padding: 12px;
+    cursor: pointer;
+    transition: 0.25s;
+    border: 2px solid transparent;
+    background: linear-gradient(#000,#000) padding-box,
+                linear-gradient(45deg,#00ffcc,#00aaff) border-box;
+  }
+
+  .animal.selected {
+    animation: pulse 1.5s infinite;
+    box-shadow: 0 0 20px #00ffcc, 0 0 40px #00aaff;
+  }
+
+  @keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.08); }
+    100% { transform: scale(1); }
+  }
+
+  .emoji { font-size: 32px; display:block; }
+  #result { font-size: 22px; margin-top: 10px; }
+
+  #history {
+    margin-top: 20px;
+    max-height: 160px;
+    overflow-y: auto;
+    text-align: left;
+    border-top: 1px solid #00ffcc;
+    padding-top: 10px;
+    font-size: 14px;
+  }
+</style>
+</head>
+<body>
+<div class="panel" id="panel">
+<h1>Age Converter</h1>
+<input type="number" id="ageInput" placeholder="Enter age (press Enter to convert)">
+<div class="mode-buttons">
+  <button onclick="setMode('humanToAnimal')">Human → Animal</button>
+  <button onclick="setMode('animalToHuman')">Animal → Human</button>
+</div>
+<div class="grid" id="animalGrid"></div>
+<div id="result"></div>
+<div id="history"></div>
+</div>
+
+<script>
+let mode = 'humanToAnimal';
+let selectedAnimal = null;
+let touchStartX = 0;
+
+function setMode(m){ mode = m; }
+
+const animals = [
+  {name:'Frog', emoji:'🐸', factor:5},
+  {name:'Horse', emoji:'🐴', factor:3},
+  {name:'Fly', emoji:'🪰', factor:200},
+  {name:'Dog', emoji:'🐶', factor:7},
+  {name:'Cat', emoji:'🐱', factor:6},
+  {name:'Bird', emoji:'🐦', factor:4},
+  {name:'Ant', emoji:'🐜', factor:300},
+  {name:'Snake', emoji:'🐍', factor:2.5},
+  {name:'Cow', emoji:'🐮', factor:3.2},
+  {name:'Moose', emoji:'🫎', factor:2.8},
+  {name:'Shark', emoji:'🦈', factor:1.5},
+  {name:'Bear', emoji:'🐻', factor:2}
+];
+
+const grid = document.getElementById('animalGrid');
+let tiles = [];
+
+animals.forEach((a,i) => {
+  const div = document.createElement('div');
+  div.className = 'animal';
+  div.innerHTML = `<span class="emoji">${a.emoji}</span>${a.name}`;
+  div.onclick = () => selectAnimal(i);
+  grid.appendChild(div);
+  tiles.push(div);
+});
+
+function selectAnimal(i){
+  tiles.forEach(t=>t.classList.remove('selected'));
+  tiles[i].classList.add('selected');
+  selectedAnimal = animals[i];
+  convert(selectedAnimal);
+}
+
+// Swipe support
+const panel = document.getElementById('panel');
+panel.addEventListener('touchstart', e => touchStartX = e.touches[0].clientX);
+panel.addEventListener('touchend', e => {
+  let diff = e.changedTouches[0].clientX - touchStartX;
+  if(Math.abs(diff) < 40) return;
+  let idx = animals.indexOf(selectedAnimal);
+  if(idx === -1) idx = 0;
+  if(diff < 0) idx = (idx+1)%animals.length;
+  else idx = (idx-1+animals.length)%animals.length;
+  selectAnimal(idx);
+});
+
+// Enter convert
+ document.getElementById('ageInput').addEventListener('keydown', e => {
+  if(e.key === 'Enter' && selectedAnimal){ convert(selectedAnimal); }
+});
+
+function dogHumanToDog(h){ if(h<=2) return h*10.5; return 21 + (h-2)*4; }
+function dogDogToHuman(d){ if(d<=21) return d/10.5; return 2 + (d-21)/4; }
+function catHumanToCat(h){ if(h<=2) return h*12; return 24 + (h-2)*4; }
+function catCatToHuman(c){ if(c<=24) return c/12; return 2 + (c-24)/4; }
+
+function convert(animal){
+  const age = Number(document.getElementById('ageInput').value);
+  if(!age) return;
+  let output;
+  if(mode === 'humanToAnimal'){
+    let animalAge = animal.name==='Dog'?dogHumanToDog(age):
+                    animal.name==='Cat'?catHumanToCat(age):age*animal.factor;
+    output = `${age} human → ${animalAge.toFixed(1)} ${animal.name}`;
+  } else {
+    let humanAge = animal.name==='Dog'?dogDogToHuman(age):
+                   animal.name==='Cat'?catCatToHuman(age):age/animal.factor;
+    output = `${age} ${animal.name} → ${humanAge.toFixed(1)} human`;
+  }
+  document.getElementById('result').textContent = output;
+  const h = document.getElementById('history');
+  h.innerHTML = `<div>${output}</div>` + h.innerHTML;
+}
+</script>
+</body>
+</html>
