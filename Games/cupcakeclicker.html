@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cupcake Clicker</title>
+<style>
+body{font-family:Arial;text-align:center;background:linear-gradient(#ffeef5,#ffd6e8)}
+#cupcake{font-size:120px;cursor:pointer}
+.upgrade{margin:6px;padding:12px;border-radius:12px;border:none;background:white;box-shadow:0 2px 6px rgba(0,0,0,0.2);width:90%;max-width:420px}
+.floating{position:absolute;font-size:28px;animation:floatUp 1s forwards}
+@keyframes floatUp{from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(-80px)}}
+</style>
+</head>
+<body>
+
+<h1>Cupcake Clicker</h1>
+<h2 id="score">Cupcakes: 0</h2>
+<h3 id="cps">Cupcakes/sec: 0</h3>
+<h3 id="prestige">Prestige Multiplier: 1x</h3>
+<div id="cupcake">🧁</div>
+<button onclick="prestigeReset()">Prestige Reset</button>
+
+<h3>Upgrades</h3>
+<div id="upgrades"></div>
+
+<h3>Stats</h3>
+<ul id="stats"></ul>
+
+<h3>Achievements</h3>
+<ul id="achievements"></ul>
+
+<button onclick="toggleMusic()">Toggle Music</button>
+<audio id="music" loop src="https://actions.google.com/sounds/v1/ambiences/bakery.ogg"></audio>
+
+<script>
+let cupcakes=0,clickPower=1,cps=0,prestige=1,lastSave=Date.now();
+let totalClicks=0,totalBaked=0,startTime=Date.now();
+let musicOn=false;
+
+let achievements=[
+{goal:100, text:'Bake 100 cupcakes', unlocked:false},
+{goal:1000, text:'Bake 1,000 cupcakes', unlocked:false},
+{goal:10000, text:'Bake 10,000 cupcakes', unlocked:false},
+{goal:100000, text:'Bake 100,000 cupcakes', unlocked:false}
+];
+
+let upgrades=[];
+for(let i=0;i<15;i++) upgrades.push({level:0,cost:Math.floor(10*Math.pow(1.8,i)),power:i+1,cps:(i+1)*0.2});
+
+const scoreDisplay=document.getElementById('score');
+const cpsDisplay=document.getElementById('cps');
+const prestigeDisplay=document.getElementById('prestige');
+const upgradesDiv=document.getElementById('upgrades');
+const achievementsList=document.getElementById('achievements');
+const statsList=document.getElementById('stats');
+const music=document.getElementById('music');
+
+function updateDisplay(){
+scoreDisplay.textContent='Cupcakes: '+Math.floor(cupcakes);
+cpsDisplay.textContent='Cupcakes/sec: '+(cps*prestige).toFixed(1);
+prestigeDisplay.textContent='Prestige Multiplier: '+prestige+'x';
+updateAchievements();
+updateStats();
+}
+
+function updateStats(){
+const playtime=Math.floor((Date.now()-startTime)/1000);
+statsList.innerHTML=`
+<li>Total Clicks: ${totalClicks}</li>
+<li>Total Cupcakes Baked: ${Math.floor(totalBaked)}</li>
+<li>Playtime: ${playtime}s</li>`;
+}
+
+function updateAchievements(){
+achievementsList.innerHTML='';
+achievements.forEach(a=>{
+if(!a.unlocked && totalBaked>=a.goal){a.unlocked=true;alert('Achievement unlocked: '+a.text)}
+const li=document.createElement('li');
+li.textContent=(a.unlocked?'✅ ':'⬜ ')+a.text;
+achievementsList.appendChild(li);
+});
+}
+
+function floatingText(x,y,text){const el=document.createElement('div');el.className='floating';el.style.left=x+'px';el.style.top=y+'px';el.textContent=text;document.body.appendChild(el);setTimeout(()=>el.remove(),1000)}
+
+function clickCupcake(e){
+const gain=clickPower*prestige;
+cupcakes+=gain;
+totalClicks++;
+totalBaked+=gain;
+if(e)floatingText(e.clientX,e.clientY,'+'+Math.floor(gain));
+updateDisplay();updateButtons();
+}
+document.getElementById('cupcake').onclick=clickCupcake;
+
+function createUpgradeButtons(){upgradesDiv.innerHTML='';upgrades.forEach((u,i)=>{const btn=document.createElement('button');btn.className='upgrade';btn.id='upgrade'+i;btn.onclick=()=>buyUpgrade(i);upgradesDiv.appendChild(btn)});updateButtons()}
+
+function updateButtons(){upgrades.forEach((u,i)=>{const btn=document.getElementById('upgrade'+i);btn.textContent=`Upgrade ${i+1} (Lvl ${u.level}) Cost: ${u.cost}`;btn.disabled=cupcakes<u.cost})}
+
+function buyUpgrade(i){const u=upgrades[i];if(cupcakes>=u.cost){cupcakes-=u.cost;u.level++;clickPower+=u.power;cps+=u.cps;u.cost=Math.floor(u.cost*1.6);updateDisplay();updateButtons();saveGame()}}
+
+function prestigeReset(){if(cupcakes<100000)return alert('Need 100k cupcakes');prestige++;cupcakes=0;clickPower=1;cps=0;upgrades.forEach((u,i)=>{u.level=0;u.cost=Math.floor(10*Math.pow(1.8,i))});updateDisplay();updateButtons()}
+
+setInterval(()=>{const gain=cps*prestige;cupcakes+=gain;totalBaked+=gain;updateDisplay()},1000);
+
+function toggleMusic(){musicOn=!musicOn;if(musicOn)music.play();else music.pause()}
+
+function saveGame(){lastSave=Date.now();localStorage.setItem('cupcakeSave',JSON.stringify({cupcakes,clickPower,cps,prestige,upgrades,lastSave,achievements,totalClicks,totalBaked,startTime}))}
+
+function loadGame(){const save=JSON.parse(localStorage.getItem('cupcakeSave'));if(!save)return;cupcakes=save.cupcakes;clickPower=save.clickPower;cps=save.cps;prestige=save.prestige;upgrades=save.upgrades;achievements=save.achievements;totalClicks=save.totalClicks||0;totalBaked=save.totalBaked||0;startTime=save.startTime||Date.now();const offline=Math.floor((Date.now()-save.lastSave)/1000);cupcakes+=offline*cps*prestige;totalBaked+=offline*cps*prestige}
+
+setInterval(saveGame,5000);
+
+let gpPressed=false;function poll(){const gp=navigator.getGamepads()[0];if(gp){const p=gp.buttons[0].pressed;if(p&&!gpPressed)clickCupcake();gpPressed=p}requestAnimationFrame(poll)}window.addEventListener('gamepadconnected',poll);
+
+loadGame();createUpgradeButtons();updateDisplay();
+</script>
+</body>
+</html>
