@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Basketball Game</title>
+<style>
+  body { margin:0; font-family:Arial; background:#111; color:#fff; }
+  #menu { padding:10px; background:#222; display:flex; gap:10px; }
+  canvas { display:block; margin:auto; background:#0b6623; }
+</style>
+</head>
+<body>
+
+<div id="menu">
+  <label>Resolution:
+    <select id="resolution">
+      <option value="1000x500">1000x500</option>
+      <option value="1280x720">1280x720</option>
+      <option value="1920x1080">1920x1080</option>
+    </select>
+  </label>
+
+  <label>AI Difficulty:
+    <select id="difficulty">
+      <option value="80">Easy</option>
+      <option value="130">Medium</option>
+      <option value="200">Hard</option>
+    </select>
+  </label>
+
+  <button id="startBtn">Start Game</button>
+  <span id="controllerStatus">Controller: Not detected</span>
+</div>
+
+<canvas id="gameCanvas" width="1000" height="500"></canvas>
+
+<script>
+const canvas=document.getElementById('gameCanvas');
+const ctx=canvas.getContext('2d');
+
+let settings={ aiSpeed:80 };
+let score=[0,0];
+let possession=0;
+
+let gamepadIndex=null;
+window.addEventListener('gamepadconnected',e=>{
+  gamepadIndex=e.gamepad.index;
+  document.getElementById('controllerStatus').textContent='Controller: Connected';
+});
+
+const keys={};
+window.addEventListener('keydown',e=>keys[e.key]=true);
+window.addEventListener('keyup',e=>keys[e.key]=false);
+
+const hoop={x:940,y:180,w:20,h:120};
+const threeLineX=760;
+
+class Player{
+  constructor(x,y,team,isAI=false){
+    this.x=x; this.y=y; this.team=team; this.isAI=isAI;
+    this.hasBall=false;
+  }
+  update(dt,ball){
+    let vx=0,vy=0;
+    const speed=this.isAI?settings.aiSpeed:220;
+
+    if(this.isAI){
+      vx=Math.sign(ball.x-this.x)*speed;
+      vy=Math.sign(ball.y-this.y)*speed;
+      if(Math.hypot(this.x-ball.x,this.y-ball.y)<25){ this.hasBall=true; possession=this.team; }
+    } else {
+      // keyboard
+      if(keys['a']) vx=-speed;
+      if(keys['d']) vx=speed;
+      if(keys['w']) vy=-speed;
+      if(keys['s']) vy=speed;
+
+      // controller mapping
+      if(gamepadIndex!==null){
+        const gp=navigator.getGamepads()[gamepadIndex];
+        if(gp){
+          vx += gp.axes[0]*speed;
+          vy += gp.axes[1]*speed;
+        }
+      }
+
+      if(Math.hypot(this.x-ball.x,this.y-ball.y)<25){ this.hasBall=true; possession=this.team; }
+    }
+
+    this.x+=vx*dt;
+    this.y+=vy*dt;
+
+    if(this.hasBall){
+      ball.x=this.x+15;
+      ball.y=this.y+30 + Math.sin(Date.now()/80)*5;
+    }
+  }
+  draw(){ ctx.fillStyle=this.team?"blue":"white"; ctx.fillRect(this.x,this.y,28,28); }
+}
+
+class Ball{
+  constructor(){ this.x=400; this.y=200; this.vx=0; this.vy=0; this.lastTeam=0; }
+  shoot(dir,team){
+    this.vx=dir*350;
+    this.vy=-220;
+    playersList.forEach(p=>p.hasBall=false);
+    possession=-1;
+    this.lastTeam=team;
+  }
+  passTo(player,team){
+    playersList.forEach(p=>p.hasBall=false);
+    player.hasBall=true;
+    possession=team;
+  }
+  update(dt){
+    if(possession===-1){
+      this.vy+=400*dt;
+      this.x+=this.vx*dt;
+      this.y+=this.vy*dt;
+      if(this.y>canvas.height-20){ this.y=canvas.height-20; this.vy*=-0.6; }
+    }
+
+    if(this.x>hoop.x && this.x<hoop.x+hoop.w && this.y>hoop.y && this.y<hoop.y+hoop.h){
+      const points = this.x<threeLineX?2:3;
+      score[this.lastTeam]+=points;
+      this.x=400; this.y=200; this.vx=0; this.vy=0;
+      possession=1-this.lastTeam;
+    }
+  }
+  draw(){ ctx.beginPath(); ctx.arc(this.x,this.y,10,0,Math.PI*2); ctx.fillStyle='orange'; ctx.fill(); }
+}
+
+let playersList=[];
+let ball=new Ball();
+
+function setupPlayers(){
+  playersList=[];
+  for(let i=0;i<5;i++) playersList.push(new Player(100+i*40,100+i*50,0,i!==0));
+  for(let i=0;i<5;i++) playersList.push(new Player(600+i*40,100+i*50,1,true));
+}
+
+startBtn.onclick=()=>{
+  const [w,h]=resolution.value.split('x');
+  canvas.width=parseInt(w);
+  canvas.height=parseInt(h);
+  settings.aiSpeed=parseInt(difficulty.value);
+  score=[0,0];
+  setupPlayers();
+};
+
+window.addEventListener('keydown',e=>{
+  const p=playersList.find(p=>p.hasBall && p.team===0);
+  if(!p) return;
+  if(e.key===' ') ball.shoot(1,p.team);
+  if(e.key==='f'){
+    const teammates=playersList.filter(tp=>tp.team===0 && tp!==p);
+    let nearest=teammates[0];
+    let best=Infinity;
+    teammates.forEach(tp=>{
+      const d=Math.hypot(tp.x-p.x,tp.y-p.y);
+      if(d<best){ best=d; nearest=tp; }
+    });
+    ball.passTo(nearest,p.team);
+  }
+});
+
+function gamepadActions(){
+  if(gamepadIndex===null) return;
+  const gp=navigator.getGamepads()[gamepadIndex];
+  if(!gp) return;
+
+  const p=playersList.find(pl=>pl.hasBall && pl.team===0);
+  if(!p) return;
+
+  if(gp.buttons[0].pressed) ball.shoot(1,p.team); // A shoot
+  if(gp.buttons[1].pressed){ // B pass
+    const teammates=playersList.filter(tp=>tp.team===0 && tp!==p);
+    let nearest=teammates[0];
+    let best=Infinity;
+    teammates.forEach(tp=>{
+      const d=Math.hypot(tp.x-p.x,tp.y-p.y);
+      if(d<best){ best=d; nearest=tp; }
+    });
+    ball.passTo(nearest,p.team);
+  }
+}
+
+function update(dt){ playersList.forEach(p=>p.update(dt,ball)); ball.update(dt); gamepadActions(); }
+
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle='#fff'; ctx.font='24px Arial';
+  ctx.fillText(`Score: ${score[0]} - ${score[1]}`,20,30);
+
+  ctx.fillStyle='red'; ctx.fillRect(hoop.x,hoop.y,hoop.w,hoop.h);
+  ctx.strokeStyle='yellow'; ctx.beginPath(); ctx.moveTo(threeLineX,0); ctx.lineTo(threeLineX,canvas.height); ctx.stroke();
+
+  playersList.forEach(p=>p.draw());
+  ball.draw();
+}
+
+let last=0;
+function loop(ts){ const dt=(ts-last)/1000; last=ts; update(dt); draw(); requestAnimationFrame(loop);} 
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
