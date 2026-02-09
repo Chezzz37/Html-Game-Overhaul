@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Advanced To-Do List</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Audiowide&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      font-family: 'Audiowide', sans-serif;
+      background: #f4f4f4;
+      color: #000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      transition: background 0.3s, color 0.3s;
+    }
+    .container {
+      background: white;
+      padding: 20px;
+      border-radius: 15px;
+      width: 360px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    }
+    input, select, button {
+      padding: 8px;
+      margin: 5px 0;
+      width: 100%;
+      font-family: 'Audiowide', sans-serif;
+    }
+    ul {
+      list-style: none;
+      padding: 0;
+      margin-top: 15px;
+      max-height: 220px;
+      overflow-y: auto;
+    }
+    li {
+      padding: 8px;
+      border-bottom: 1px solid #ddd;
+      display: flex;
+      flex-direction: column;
+    }
+    .task-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .badge {
+      padding: 2px 6px;
+      border-radius: 6px;
+      font-size: 11px;
+      margin-left: 6px;
+      color: white;
+    }
+    .high { background: #e53935; }
+    .medium { background: #fb8c00; }
+    .low { background: #43a047; }
+    li.done {
+      text-decoration: line-through;
+      opacity: 0.6;
+    }
+    .date {
+      font-size: 12px;
+      opacity: 0.7;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>To-Do List</h2>
+
+    <input id="taskInput" type="text" placeholder="Task" />
+    <input id="dateInput" type="date" />
+
+    <select id="priorityInput">
+      <option value="low">Low Priority</option>
+      <option value="medium">Medium Priority</option>
+      <option value="high">High Priority</option>
+    </select>
+
+    <button onclick="addTask()">Add Task</button>
+
+    <button onclick="sortByDate()">Sort by Date</button>
+    <button onclick="sortByPriority()">Sort by Priority</button>
+
+    <h3>Theme</h3>
+    <select onchange="setTheme(this.value)">
+      <option value="default">Default</option>
+      <option value="blue">Blue</option>
+      <option value="green">Green</option>
+      <option value="purple">Purple</option>
+      <option value="yellow">Yellow</option>
+      <option value="black">Black</option>
+      <option value="pink">Pink</option>
+    </select>
+
+    <ul id="taskList"></ul>
+  </div>
+
+  <script>
+    const taskList = document.getElementById('taskList');
+
+    function saveTasks() {
+      const tasks = [];
+      taskList.querySelectorAll('li').forEach(li => {
+        tasks.push({
+          text: li.dataset.text,
+          date: li.dataset.date,
+          priority: li.dataset.priority,
+          done: li.classList.contains('done')
+        });
+      });
+      localStorage.setItem('tasks', JSON.stringify(tasks));
+    }
+
+    function loadTasks() {
+      const tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
+      tasks.forEach(t => createTask(t.text, t.date, t.priority, t.done));
+    }
+
+    function addTask() {
+      const text = document.getElementById('taskInput').value.trim();
+      const date = document.getElementById('dateInput').value;
+      const priority = document.getElementById('priorityInput').value;
+      if (!text) return;
+      createTask(text, date, priority, false);
+      saveTasks();
+      document.getElementById('taskInput').value = '';
+    }
+
+    function createTask(text, date, priority, done) {
+      const li = document.createElement('li');
+      li.dataset.text = text;
+      li.dataset.date = date || '';
+      li.dataset.priority = priority;
+
+      const row = document.createElement('div');
+      row.className = 'task-row';
+
+      const span = document.createElement('span');
+      span.textContent = text;
+
+      const badge = document.createElement('span');
+      badge.className = 'badge ' + priority;
+      badge.textContent = priority;
+
+      const removeBtn = document.createElement('button');
+      removeBtn.textContent = 'X';
+      removeBtn.onclick = e => {
+        e.stopPropagation();
+        li.remove();
+        saveTasks();
+      };
+
+      row.appendChild(span);
+      row.appendChild(badge);
+      row.appendChild(removeBtn);
+
+      const dateEl = document.createElement('div');
+      dateEl.className = 'date';
+      dateEl.textContent = date ? 'Due: ' + date : '';
+
+      li.appendChild(row);
+      li.appendChild(dateEl);
+
+      li.addEventListener('click', () => {
+        li.classList.toggle('done');
+        saveTasks();
+      });
+
+      if (done) li.classList.add('done');
+      taskList.appendChild(li);
+    }
+
+    function sortByDate() {
+      const items = Array.from(taskList.children);
+      items.sort((a,b) => (a.dataset.date || '').localeCompare(b.dataset.date || ''));
+      items.forEach(i => taskList.appendChild(i));
+      saveTasks();
+    }
+
+    function sortByPriority() {
+      const order = { high: 1, medium: 2, low: 3 };
+      const items = Array.from(taskList.children);
+      items.sort((a,b) => order[a.dataset.priority] - order[b.dataset.priority]);
+      items.forEach(i => taskList.appendChild(i));
+      saveTasks();
+    }
+
+    function setTheme(theme) {
+      const body = document.body;
+      const themes = {
+        default: { bg: '#f4f4f4', color: '#000' },
+        blue: { bg: '#cce4ff', color: '#003366' },
+        green: { bg: '#d9fdd3', color: '#1b5e20' },
+        purple: { bg: '#e6d6ff', color: '#4a148c' },
+        yellow: { bg: '#fff9c4', color: '#795548' },
+        black: { bg: '#111', color: '#fff' },
+        pink: { bg: '#ffd6e7', color: '#880e4f' }
+      };
+      body.style.background = themes[theme].bg;
+      body.style.color = themes[theme].color;
+      localStorage.setItem('theme', theme);
+    }
+
+    function loadTheme() {
+      const theme = localStorage.getItem('theme') || 'default';
+      setTheme(theme);
+    }
+
+    loadTasks();
+    loadTheme();
+  </script>
+</body>
+</html>
