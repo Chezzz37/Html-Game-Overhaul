@@ -1,2 +1,2 @@
-GPTand/Apps made W/ChatGPTand Gemini. Might add a game hub/launcher soon.
-Creator of M0th3rCrystal!
+Games+Apps Made with ChatGPT and Gemini. Might add a game hub/launcher soon. Creator of M0th3rCrystal!
+
