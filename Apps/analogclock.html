@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Analog Clock</title>
+  <link href="https://fonts.googleapis.com/css2?family=Audiowide&display=swap" rel="stylesheet">
+  <style>
+    body {
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: #000000;
+      font-family: 'Audiowide', cursive;
+      color: #aaff00;
+    }
+
+    .clock {
+      width: 320px;
+      height: 320px;
+      border: 6px solid #aaff00;
+      border-radius: 50%;
+      position: relative;
+      box-shadow: 0 0 25px #aaff00;
+    }
+
+    .number {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      text-align: center;
+      transform: rotate(var(--rotation));
+      font-size: 22px;
+      color: #aaff00;
+    }
+
+    .number span {
+      display: inline-block;
+      transform: rotate(calc(-1 * var(--rotation)));
+      margin-top: 10px;
+    }
+
+    .hand {
+      --rotation: 0;
+      position: absolute;
+      bottom: 50%;
+      left: 50%;
+      transform-origin: bottom;
+      transform: translateX(-50%) rotate(calc(var(--rotation) * 1deg));
+      background: #aaff00;
+      border-radius: 4px;
+    }
+
+    .hand.hour {
+      width: 8px;
+      height: 70px;
+    }
+
+    .hand.minute {
+      width: 6px;
+      height: 110px;
+    }
+
+    .hand.second {
+      width: 3px;
+      height: 130px;
+      background: #ccff33;
+    }
+
+    .center-dot {
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      background: #aaff00;
+      border-radius: 50%;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+    }
+  </style>
+</head>
+<body>
+  <div class="clock">
+    <div class="hand hour" id="hourHand"></div>
+    <div class="hand minute" id="minuteHand"></div>
+    <div class="hand second" id="secondHand"></div>
+    <div class="center-dot"></div>
+
+    <script>
+      const clock = document.querySelector('.clock');
+      for (let i = 1; i <= 12; i++) {
+        const number = document.createElement('div');
+        number.className = 'number';
+        number.style.setProperty('--rotation', i * 30 + 'deg');
+        const span = document.createElement('span');
+        span.textContent = i;
+        number.appendChild(span);
+        clock.appendChild(number);
+      }
+
+      function setClock() {
+        const now = new Date();
+        const seconds = now.getSeconds() / 60;
+        const minutes = (seconds + now.getMinutes()) / 60;
+        const hours = (minutes + now.getHours()) / 12;
+
+        document.getElementById('secondHand').style.setProperty('--rotation', seconds * 360);
+        document.getElementById('minuteHand').style.setProperty('--rotation', minutes * 360);
+        document.getElementById('hourHand').style.setProperty('--rotation', hours * 360);
+      }
+
+      setClock();
+      setInterval(setClock, 1000);
+    </script>
+  </div>
+</body>
+</html>
