@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Advanced 8 Worlds Platformer</title>
+<style>
+  body { margin:0; overflow:hidden; background:#111; }
+  canvas { background:#222; display:block; margin:auto; }
+  #ui { position:absolute; top:10px; left:10px; color:white; font-family:Arial; }
+  #startScreen, #optionsScreen {
+    position:absolute; top:0; left:0; width:100%; height:100%;
+    background:#000; display:flex; align-items:center; justify-content:center;
+    flex-direction:column; color:white; font-family:Arial;
+  }
+  #optionsScreen { display:none; }
+  button { padding:15px 40px; font-size:22px; margin:10px; cursor:pointer; }
+</style>
+</head>
+<body>
+<div id="startScreen">
+  <h1>8 Worlds Platformer</h1>
+  <button id="startBtn">Start Game</button>
+  <button id="optionsBtn">Options</button>
+</div>
+
+<div id="optionsScreen">
+  <h2>Options</h2>
+  <label>Volume: <input type="range" id="volumeSlider" min="0" max="1" step="0.05" value="0.5"></label>
+  <button id="backBtn">Back</button>
+</div>
+
+<div id="ui">World: <span id="world">1</span> | Level: <span id="level">1</span> | Lives: <span id="lives">3</span> | Score: <span id="score">0</span></div>
+<canvas id="game" width="900" height="500"></canvas>
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+let gameStarted=false;
+
+const startScreen = document.getElementById('startScreen');
+const optionsScreen = document.getElementById('optionsScreen');
+
+document.getElementById('startBtn').onclick = ()=>{
+  startScreen.style.display='none';
+  gameStarted=true;
+};
+
+document.getElementById('optionsBtn').onclick = ()=>{
+  startScreen.style.display='none';
+  optionsScreen.style.display='flex';
+};
+
+document.getElementById('backBtn').onclick = ()=>{
+  optionsScreen.style.display='none';
+  startScreen.style.display='flex';
+};
+
+const jumpSound = new Audio('https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg');
+const coinSound = new Audio('https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg');
+const hitSound = new Audio('https://actions.google.com/sounds/v1/cartoon/metal_twang.ogg');
+
+const volumeSlider = document.getElementById('volumeSlider');
+volumeSlider.oninput = ()=>{
+  const v = volumeSlider.value;
+  jumpSound.volume=v;
+  coinSound.volume=v;
+  hitSound.volume=v;
+};
+
+let gravity = 0.6;
+let score=0;
+let lives=3;
+let player = { x:50, y:300, w:30, h:40, vx:0, vy:0, onGround:false };
+
+let keys = {};
+addEventListener('keydown', e=> keys[e.key]=true);
+addEventListener('keyup', e=> keys[e.key]=false);
+
+let gamepadIndex = null;
+window.addEventListener("gamepadconnected", (e)=>{ gamepadIndex = e.gamepad.index; });
+window.addEventListener("gamepaddisconnected", ()=>{ gamepadIndex=null; });
+
+let worlds = [];
+for(let w=1; w<=8; w++){
+  let levels = [];
+  for(let l=1; l<=9; l++){
+    levels.push({ platforms: generatePlatforms(), movingPlatforms: generateMovingPlatforms(), hazards: generateHazards(), coins: generateCoins(), enemies: generateEnemies() });
+  }
+  worlds.push(levels);
+}
+
+let currentWorld = 0;
+let currentLevel = 0;
+
+function generatePlatforms(){ let arr=[]; for(let i=0;i<6;i++) arr.push({x:Math.random()*800,y:Math.random()*350+50,w:120,h:20}); arr.push({x:0,y:470,w:900,h:30}); return arr; }
+function generateMovingPlatforms(){ return [{x:200,y:300,w:100,h:20,dir:1},{x:450,y:250,w:100,h:20,dir:-1}]; }
+function generateHazards(){ let arr=[]; for(let i=0;i<3;i++) arr.push({x:Math.random()*800,y:450,w:40,h:20}); return arr; }
+function generateCoins(){ let arr=[]; for(let i=0;i<10;i++) arr.push({x:Math.random()*800,y:Math.random()*350+50,collected:false}); return arr; }
+function generateEnemies(){ let arr=[]; for(let i=0;i<3;i++) arr.push({x:Math.random()*700+100,y:430,w:30,h:30,alive:true,dir:1}); return arr; }
+
+function update(){
+  if(!gameStarted) return;
+
+  let moveLeft=false, moveRight=false, jump=false;
+  if(keys['ArrowLeft']) moveLeft=true;
+  if(keys['ArrowRight']) moveRight=true;
+  if(keys[' ']) jump=true;
+
+  if(gamepadIndex!==null){ const gp = navigator.getGamepads()[gamepadIndex]; if(gp){ if(gp.axes[0] < -0.3) moveLeft=true; if(gp.axes[0] > 0.3) moveRight=true; if(gp.buttons[0].pressed) jump=true; }}
+
+  player.vx = 0;
+  if(moveLeft) player.vx=-5;
+  if(moveRight) player.vx=5;
+  if(jump && player.onGround){ player.vy=-12; jumpSound.play(); }
+
+  player.vy += gravity;
+  player.x += player.vx;
+  player.y += player.vy;
+
+  player.onGround=false;
+  let lvl = worlds[currentWorld][currentLevel];
+
+  lvl.platforms.forEach(p=>{ if(collide(player,p)){ player.y=p.y-player.h; player.vy=0; player.onGround=true; }});
+  lvl.movingPlatforms.forEach(p=>{ p.x+=p.dir*2; if(p.x<100||p.x>700) p.dir*=-1; if(collide(player,p)){ player.y=p.y-player.h; player.vy=0; player.onGround=true; player.x+=p.dir*2; }});
+  lvl.hazards.forEach(h=>{ if(collide(player,h)){ hitSound.play(); loseLife(); }});
+  lvl.enemies.forEach(e=>{ if(!e.alive) return; e.x+=e.dir*1.5; if(e.x<0||e.x>870) e.dir*=-1; if(collide(player,e)){ if(player.vy>0&&player.y<e.y){ e.alive=false; score+=100; player.vy=-8;} else { hitSound.play(); loseLife(); }}});
+  lvl.coins.forEach(c=>{ if(!c.collected && player.x<c.x+10 && player.x+player.w>c.x && player.y<c.y+10 && player.y+player.h>c.y){ c.collected=true; score+=10; coinSound.play(); }});
+
+  if(player.x>850){ nextLevel(); }
+}
+
+function collide(a,b){ return a.x < b.x+b.w && a.x+a.w>b.x && a.y < b.y+b.h && a.y+a.h>b.y; }
+function loseLife(){ lives--; player.x=50; player.y=300; if(lives<=0){ alert('Game Over'); location.reload(); } }
+function nextLevel(){ currentLevel++; if(currentLevel>=worlds[currentWorld].length){ currentWorld++; currentLevel=0; } player.x=50; player.y=300; }
+
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  if(!gameStarted) return;
+  let lvl = worlds[currentWorld][currentLevel];
+  ctx.fillStyle='white'; lvl.platforms.forEach(p=> ctx.fillRect(p.x,p.y,p.w,p.h));
+  ctx.fillStyle='lightblue'; lvl.movingPlatforms.forEach(p=> ctx.fillRect(p.x,p.y,p.w,p.h));
+  ctx.fillStyle='red'; lvl.hazards.forEach(h=> ctx.fillRect(h.x,h.y,h.w,h.h));
+  ctx.fillStyle='yellow'; lvl.coins.forEach(c=>{ if(!c.collected) ctx.fillRect(c.x,c.y,10,10); });
+  ctx.fillStyle='orange'; lvl.enemies.forEach(e=>{ if(e.alive) ctx.fillRect(e.x,e.y,e.w,e.h); });
+  ctx.fillStyle='cyan'; ctx.fillRect(player.x,player.y,player.w,player.h);
+
+  document.getElementById('world').textContent=currentWorld+1;
+  document.getElementById('level').textContent=currentLevel+1;
+  document.getElementById('lives').textContent=lives;
+  document.getElementById('score').textContent=score;
+}
+
+function gameLoop(){ update(); draw(); requestAnimationFrame(gameLoop); }
+
+gameLoop();
+</script>
+<script>
+  <!-- Updated game file with Graphics Quality toggle added to Options menu -->
+<!-- Due to size, existing game code remains the same except the following additions -->
+
+<!-- Add inside options menu HTML -->
+<label>Graphics Quality:</label>
+<select id="graphicsQuality">
+<option value="high">High</option>
+<option value="medium">Medium</option>
+<option value="low">Low</option>
+</select>
+
+<script>
+let graphicsQuality = "high";
+
+const qualitySelect = document.getElementById("graphicsQuality");
+if(qualitySelect){
+    qualitySelect.onchange = () => {
+        graphicsQuality = qualitySelect.value;
+        localStorage.setItem("graphicsQuality", graphicsQuality);
+    };
+    const savedQuality = localStorage.getItem("graphicsQuality");
+    if(savedQuality){
+        graphicsQuality = savedQuality;
+        qualitySelect.value = savedQuality;
+    }
+}
+
+function applyGraphicsQuality(){
+    if(graphicsQuality === "low"){
+        maxParticles = 5;
+        enableShadows = false;
+    }else if(graphicsQuality === "medium"){
+        maxParticles = 15;
+        enableShadows = false;
+    }else{
+        maxParticles = 40;
+        enableShadows = true;
+    }
+}
+
+setInterval(applyGraphicsQuality, 1000);
+</script>
+
+</body>
+</html>
