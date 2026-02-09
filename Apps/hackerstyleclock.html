@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Hacker Terminal Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Audiowide&display=swap" rel="stylesheet">
+
+<style>
+body {
+    margin:0;
+    overflow:hidden;
+    background:black;
+    font-family:'Audiowide',sans-serif;
+    color:#32ff32;
+}
+
+canvas{
+    position:fixed;
+    top:0;
+    left:0;
+    z-index:-1;
+}
+
+/* clock */
+#clock{
+    text-align:center;
+    font-size:100px;
+    margin-top:60px;
+    text-shadow:0 0 20px #32ff32;
+}
+#date{
+    text-align:center;
+    font-size:28px;
+    margin-bottom:30px;
+}
+
+/* meters */
+.meters{
+    width:60%;
+    margin:auto;
+}
+.bar{
+    border:1px solid #32ff32;
+    margin:10px 0;
+    height:25px;
+}
+.fill{
+    height:100%;
+    background:#32ff32;
+}
+
+/* logs */
+#logs{
+    position:fixed;
+    bottom:10px;
+    left:10px;
+    width:420px;
+    height:200px;
+    overflow:hidden;
+    font-size:14px;
+}
+
+/* fullscreen button */
+#fs{
+    position:fixed;
+    top:10px;
+    right:10px;
+    background:black;
+    color:#32ff32;
+    border:1px solid #32ff32;
+    padding:10px 20px;
+    cursor:pointer;
+}
+</style>
+</head>
+<body>
+
+<canvas id="matrix"></canvas>
+
+<button id="fs">FULLSCREEN</button>
+
+<div id="clock">00:00:00</div>
+<div id="date"></div>
+
+<div class="meters">
+    CPU
+    <div class="bar"><div id="cpu" class="fill"></div></div>
+    RAM
+    <div class="bar"><div id="ram" class="fill"></div></div>
+</div>
+
+<div id="logs"></div>
+
+<script>
+/* CLOCK */
+function updateClock(){
+    const now=new Date();
+    clock.textContent=now.toLocaleTimeString();
+    date.textContent=now.toDateString();
+}
+setInterval(updateClock,1000);
+updateClock();
+
+/* METERS */
+setInterval(()=>{
+    cpu.style.width=Math.random()*100+"%";
+    ram.style.width=Math.random()*100+"%";
+},1000);
+
+/* LOGS */
+const logBox=document.getElementById("logs");
+const messages=[
+"Initializing secure shell...",
+"Accessing encrypted node...",
+"Packet stream verified...",
+"Re-routing signal...",
+"Firewall bypass attempt...",
+"Kernel sync complete...",
+"Satellite uplink stable..."
+];
+setInterval(()=>{
+    const line=document.createElement("div");
+    line.textContent="> "+messages[Math.floor(Math.random()*messages.length)];
+    logBox.appendChild(line);
+    if(logBox.children.length>12) logBox.removeChild(logBox.children[0]);
+},1200);
+
+/* FULLSCREEN */
+fs.onclick=()=>document.documentElement.requestFullscreen();
+
+/* MATRIX RAIN */
+const canvas=document.getElementById("matrix");
+const ctx=canvas.getContext("2d");
+canvas.height=window.innerHeight;
+canvas.width=window.innerWidth;
+
+const letters="01ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const fontSize=16;
+const columns=canvas.width/fontSize;
+const drops=[];
+for(let i=0;i<columns;i++) drops[i]=1;
+
+function draw(){
+    ctx.fillStyle="rgba(0,0,0,0.05)";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle="#32ff32";
+    ctx.font=fontSize+"px monospace";
+
+    for(let i=0;i<drops.length;i++){
+        const text=letters[Math.floor(Math.random()*letters.length)];
+        ctx.fillText(text,i*fontSize,drops[i]*fontSize);
+        if(drops[i]*fontSize>canvas.height && Math.random()>0.975)
+            drops[i]=0;
+        drops[i]++;
+    }
+}
+setInterval(draw,33);
+</script>
+
+</body>
+</html>
