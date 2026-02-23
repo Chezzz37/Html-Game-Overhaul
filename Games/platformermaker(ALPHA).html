@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Platformer Maker Game - Home</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    margin: 0; padding: 0;
+    background-color: #e0f7fa;
+    color: #023047;
+    user-select: none;
+    overflow: hidden;
+  }
+  #container {
+    max-width: 900px;
+    margin: auto;
+    padding: 15px;
+    text-align: center;
+  }
+  h1 {
+    margin-bottom: 4px;
+  }
+  button {
+    font-size: 18px;
+    margin: 10px;
+    padding: 12px 30px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    background-color: #023047;
+    color: #fff;
+    transition: background-color 0.3s ease;
+  }
+  button:hover {
+    background-color: #05668d;
+  }
+  #gameScreen, #controlsMenu, #levelsMenu {
+    display: none;
+    margin-top: 10px;
+  }
+  canvas {
+    background: #8ecae6;
+    border: 2px solid #023047;
+    cursor: crosshair;
+    display: block;
+    margin: 15px auto;
+    image-rendering: pixelated;
+  }
+  #legend {
+    margin: 10px auto 20px;
+    max-width: 900px;
+    font-size: 14px;
+    text-align: left;
+    user-select: none;
+  }
+  #legend div {
+    margin: 4px 0;
+  }
+  .key { font-weight: bold; }
+  #levelsList {
+    max-height: 150px;
+    overflow-y: auto;
+    background: #cff4f7;
+    border: 1px solid #023047;
+    padding: 8px;
+    margin: 10px auto;
+    max-width: 400px;
+    text-align: left;
+  }
+  #levelsList button {
+    margin: 4px 2px;
+    padding: 6px 8px;
+    font-size: 14px;
+    background-color: #05668d;
+  }
+  #backButton {
+    background-color: #b5651d;
+  }
+</style>
+</head>
+<body>
+
+<div id="container">
+
+  <div id="homeScreen">
+    <h1>Platformer Maker Game</h1>
+    <button id="btnPlayLevels">Play Saved Levels</button>
+    <button id="btnBuildNew">Build New Level</button>
+    <button id="btnControls">Controls & Instructions</button>
+  </div>
+
+  <div id="levelsMenu">
+    <h2>Saved Levels</h2>
+    <div id="levelsList">Loading...</div>
+    <button id="btnBackFromLevels">Back</button>
+  </div>
+
+  <div id="controlsMenu">
+    <h2>Controls & Instructions</h2>
+    <div style="max-width:720px; margin:auto; text-align:left;">
+      <p><span class="key">Left / Right Arrows:</span> Move player left/right</p>
+      <p><span class="key">Space / Up Arrow:</span> Jump</p>
+      <p><span class="key">Mouse Click on Canvas:</span> Place platform</p>
+      <p><span class="key">Shift + Mouse Click:</span> Cycle platform type (Normal, Crumbling, Spiky, Bouncy)</p>
+      <p><span class="key">Mouse Wheel Scroll:</span> Scroll horizontal level view</p>
+      <p><span class="key">F key:</span> Shoot Fireball (destroy enemies)</p>
+      <p><span class="key">I key:</span> Shoot Iceball (freeze enemies)</p>
+      <p><b>Game Elements:</b></p>
+      <ul>
+        <li><span style="color:#023047;">■</span> Normal Platform</li>
+        <li><span style="color:#b5651d;">■</span> Crumbling Platform (disappears after step)</li>
+        <li><span style="color:#fc2f2f;">▲</span> Spiky Platform (hurts player)</li>
+        <li><span style="color:#2a9d8f;">●</span> Bouncy Platform (higher jump)</li>
+        <li><span style="color:#d62828;">👾</span> Enemy (walks back/forth)</li>
+        <li><span style="color:#f4a261;">🔥</span> Fireball Powerup</li>
+        <li><span style="color:#90e0ef;">❄️</span> Iceball Powerup</li>
+      </ul>
+    </div>
+    <button id="btnBackFromControls">Back</button>
+  </div>
+
+  <div id="gameScreen">
+    <button id="btnBackFromGame" style="background:#b5651d; margin-bottom:10px;">Back to Home</button>
+    <canvas id="gameCanvas" width="900" height="450"></canvas>
+    <div id="legend">
+      <div><span style="color:#023047;">■</span> Normal Platform</div>
+      <div><span style="color:#b5651d;">■</span> Crumbling Platform</div>
+      <div><span style="color:#fc2f2f;">▲</span> Spiky Platform</div>
+      <div><span style="color:#2a9d8f;">●</span> Bouncy Platform</div>
+      <div><span style="color:#d62828;">👾</span> Enemy (Walks)</div>
+      <div><span style="color:#f4a261;">🔥</span> Fireball Powerup (Shoot with F)</div>
+      <div><span style="color:#90e0ef;">❄️</span> Iceball Powerup (Shoot with I)</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(() => {
+  // Elements
+  const homeScreen = document.getElementById('homeScreen');
+  const gameScreen = document.getElementById('gameScreen');
+  const controlsMenu = document.getElementById('controlsMenu');
+  const levelsMenu = document.getElementById('levelsMenu');
+  const levelsList = document.getElementById('levelsList');
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+
+  // Buttons
+  const btnPlayLevels = document.getElementById('btnPlayLevels');
+  const btnBuildNew = document.getElementById('btnBuildNew');
+  const btnControls = document.getElementById('btnControls');
+  const btnBackFromGame = document.getElementById('btnBackFromGame');
+  const btnBackFromControls = document.getElementById('btnBackFromControls');
+  const btnBackFromLevels = document.getElementById('btnBackFromLevels');
+
+  // Utility functions for UI switching
+  const showHome = () => {
+    homeScreen.style.display = 'block';
+    gameScreen.style.display = 'none';
+    controlsMenu.style.display = 'none';
+    levelsMenu.style.display = 'none';
+  };
+  const showGame = () => {
+    homeScreen.style.display = 'none';
+    gameScreen.style.display = 'block';
+    controlsMenu.style.display = 'none';
+    levelsMenu.style.display = 'none';
+  };
+  const showControls = () => {
+    homeScreen.style.display = 'none';
+    gameScreen.style.display = 'none';
+    controlsMenu.style.display = 'block';
+    levelsMenu.style.display = 'none';
+  };
+  const showLevels = () => {
+    homeScreen.style.display = 'none';
+    gameScreen.style.display = 'none';
+    controlsMenu.style.display = 'none';
+    levelsMenu.style.display = 'block';
+  };
+
+  // Start on home screen
+  showHome();
+
+  // STORAGE keys
+  const STORAGE_LEVELS_KEY = 'platformerMakerLevels';
+
+  // Platform Types Enum & color (also used in game)
+  const PLATFORM_TYPES = {
+    NORMAL: 0,
+    CRUMBLING: 1,
+    SPIKY: 2,
+    BOUNCY: 3,
+  };
+  const PLATFORM_COLORS = {
+    [PLATFORM_TYPES.NORMAL]: '#023047',
+    [PLATFORM_TYPES.CRUMBLING]: '#b5651d',
+    [PLATFORM_TYPES.SPIKY]: '#fc2f2f',
+    [PLATFORM_TYPES.BOUNCY]: '#2a9d8f',
+  };
+
+  // Powerups
+  const POWERUP_TYPES = {
+    FIREBALL: 'fireball',
+    ICEBALL: 'iceball',
+  };
+  const POWERUP_COLORS = {
+    [POWERUP_TYPES.FIREBALL]: '#f4a261',
+    [POWERUP_TYPES.ICEBALL]: '#90e0ef',
+  };
+
+  // Game Constants
+  const GRAVITY = 0.9;
+  const PLAYER_SPEED = 5;
+  const JUMP_VELOCITY = -16;
+  const PLATFORM_WIDTH = 100;
+  const PLATFORM_HEIGHT = 20;
+  const CRUMBLE_TIME = 2000; // ms to crumble
+  const SCROLL_MARGIN = 150;
+
+  // Level dimensions
+  const WORLD_WIDTH = 3000;
+  const WORLD_HEIGHT = canvas.height;
+
+  // Game state variables
+  let scrollX = 0;
+  let currentPlType = PLATFORM_TYPES.NORMAL;
+
+  // Game data: will be reset on new level/load
+  let player, platforms, enemies, powerups, projectiles;
+  let keys = {};
+
+  // Initialize or reset game data for new/built level
+  function initGameData(levelData) {
+    scrollX = 0;
+    currentPlType = PLATFORM_TYPES.NORMAL;
+    player = {
+      x: 50,
+      y: 0,
+      width: 32,
+      height: 50,
+      velocityX: 0,
+      velocityY: 0,
+      jumping: false,
+      onPlatform: false,
+      color: '#fb8500',
+      fireballCount: 0,
+      iceballCount: 0
+    };
+
+    // Load from level or default
+    if(levelData && typeof levelData === 'object'){
+      // Validate basic fields
+      platforms = Array.isArray(levelData.platforms) ? levelData.platforms.map(p => ({
+        x: p.x, y: p.y, width: p.width, height: p.height, type: p.type, crumbleTimer: null
+      })) : [];
+      enemies = Array.isArray(levelData.enemies) ? levelData.enemies.map(e => ({
+        x: e.x, y: e.y, width: 30, height: 30, velocityX: e.vx || 1.5, frozen: false, freezeTime: 0
+      })) : [];
+      powerups = Array.isArray(levelData.powerups) ? levelData.powerups.map(p => ({
+        x: p.x, y: p.y, type: p.type
+      })) : [];
+      if(!platforms.length){
+        platforms = [{x:0, y:400, width:WORLD_WIDTH, height:PLATFORM_HEIGHT, type: PLATFORM_TYPES.NORMAL, crumbleTimer: null}];
+      }
+    } else {
+      // Default initial
+      platforms = [{x:0, y:400, width:WORLD_WIDTH, height:PLATFORM_HEIGHT, type: PLATFORM_TYPES.NORMAL, crumbleTimer: null}];
+      enemies = [{x:400, y:350, width:30, height:30, velocityX:1.5, frozen:false, freezeTime:0}];
+      powerups = [
+        {x:600, y:360, type: POWERUP_TYPES.FIREBALL},
+        {x:650, y:360, type: POWERUP_TYPES.ICEBALL}
+      ];
+    }
+    projectiles = [];
+  }
+
+  // Controls & Input for game
+  function setupInput() {
+    // Clear old listeners to prevent duplicates
+    window.onkeydown = null;
+    window.onkeyup = null;
+
+    window.addEventListener('keydown', e => {
+      keys[e.code] = true;
+
+      if((e.code === 'Space' || e.code === 'ArrowUp') && !player.jumping && player.onPlatform){
+        player.velocityY = JUMP_VELOCITY;
+        player.jumping = true;
+        player.onPlatform = false;
+      }
+      if(e.code === 'KeyF'){
+        if(player.fireballCount > 0){
+          shootProjectile(POWERUP_TYPES.FIREBALL);
+          player.fireballCount--;
+        }
+      }
+      if(e.code === 'KeyI'){
+        if(player.iceballCount > 0){
+          shootProjectile(POWERUP_TYPES.ICEBALL);
+          player.iceballCount--;
+        }
+      }
+    });
+
+    window.addEventListener('keyup', e => {
+      keys[e.code] = false;
+    });
+
+    canvas.onwheel = (e) => {
+      scrollX += e.deltaY * 2;
+      if(scrollX < 0) scrollX = 0;
+      if(scrollX > WORLD_WIDTH - canvas.width) scrollX = WORLD_WIDTH - canvas.width;
+      e.preventDefault();
+    };
+
+    canvas.onclick = (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const clickX = e.clientX - rect.left + scrollX;
+      const clickY = e.clientY - rect.top;
+
+      if(e.shiftKey){
+        currentPlType++;
+        if(currentPlType > PLATFORM_TYPES.BOUNCY) currentPlType = PLATFORM_TYPES.NORMAL;
+        alert('Platform type to place: ' + ["Normal","Crumbling","Spiky","Bouncy"][currentPlType]);
+        return;
+      }
+
+      let platX = clickX - PLATFORM_WIDTH/2;
+      if(platX < 0) platX = 0;
+      if(platX + PLATFORM_WIDTH > WORLD_WIDTH) platX = WORLD_WIDTH - PLATFORM_WIDTH;
+      let platY = clickY - PLATFORM_HEIGHT/2;
+      if(platY < 0) platY = 0;
+      if(platY + PLATFORM_HEIGHT > WORLD_HEIGHT-50) platY = WORLD_HEIGHT - 50;
+
+      platforms.push({x: platX, y: platY, width: PLATFORM_WIDTH, height: PLATFORM_HEIGHT, type: currentPlType, crumbleTimer: null});
+    };
+  }
+
+  // Rect intersection utility
+  function rectIntersect(r1, r2){
+    return !(r2.x > r1.x + r1.width || 
+             r2.x + r2.width < r1.x || 
+             r2.y > r1.y + r1.height ||
+             r2.y + r2.height < r1.y);
+  }
+
+  // Game update & draw functions
+  function updatePlayer() {
+    player.velocityY += GRAVITY;
+    player.x += player.velocityX;
+    player.y += player.velocityY;
+
+    if(player.x < 0) player.x = 0;
+    if(player.x + player.width > WORLD_WIDTH) player.x = WORLD_WIDTH - player.width;
+
+    player.onPlatform = false;
+
+    platforms.forEach(p => {
+      if(p.type === PLATFORM_TYPES.CRUMBLING && p.crumbleTimer && Date.now() - p.crumbleTimer > CRUMBLE_TIME){
+        const idx = platforms.indexOf(p);
+        if(idx > -1) platforms.splice(idx, 1);
+        return;
+      }
+
+      if(player.x + player.width > p.x &&
+         player.x < p.x + p.width &&
+         player.y + player.height > p.y &&
+         player.y + player.height < p.y + p.height + player.velocityY &&
+         player.velocityY >= 0){
+        player.y = p.y - player.height;
+        player.velocityY = 0;
+        player.jumping = false;
+        player.onPlatform = true;
+
+        if(p.type === PLATFORM_TYPES.CRUMBLING && !p.crumbleTimer){
+          p.crumbleTimer = Date.now();
+        }
+
+        if(p.type === PLATFORM_TYPES.SPIKY){
+          resetPlayer();
+        }
+
+        if(p.type === PLATFORM_TYPES.BOUNCY){
+          player.velocityY = JUMP_VELOCITY * 1.4;
+          player.jumping = true;
+          player.onPlatform = false;
+        }
+      }
+    });
+
+    if(player.y + player.height >= WORLD_HEIGHT){
+      player.y = WORLD_HEIGHT - player.height;
+      player.velocityY = 0;
+      player.jumping = false;
+      player.onPlatform = true;
+    }
+  }
+
+  function resetPlayer(){
+    player.x = 50;
+    player.y = 0;
+    player.velocityX = 0;
+    player.velocityY = 0;
+    player.jumping = false;
+    player.onPlatform = false;
+    scrollX = 0;
+  }
+
+  function updateEnemies(){
+    enemies.forEach(e => {
+      if(e.frozen){
+        e.freezeTime--;
+        if(e.freezeTime <= 0) e.frozen = false;
+        return;
+      }
+
+      e.x += e.velocityX;
+
+      let onPlat = false;
+      for(let p of platforms){
+        if(e.x + e.width > p.x && e.x < p.x + p.width){
+          if(e.y + e.height === p.y){
+            onPlat = true;
+            if(p.type === PLATFORM_TYPES.SPIKY){
+              e.velocityX *= -1;
+            }
+            break;
+          }
+        }
+      }
+      if(!onPlat) e.velocityX *= -1;
+      if(e.x < 0) e.velocityX = Math.abs(e.velocityX);
+      if(e.x + e.width > WORLD_WIDTH) e.velocityX = -Math.abs(e.velocityX);
+    });
+  }
+
+  function updateProjectiles(){
+    for(let i=projectiles.length -1; i>=0; i--){
+      const p = projectiles[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      p.life--;
+      if(p.x < 0 || p.x > WORLD_WIDTH || p.life <= 0){
+        projectiles.splice(i, 1);
+        continue;
+      }
+      for(let j=enemies.length -1; j>=0; j--){
+        const e = enemies[j];
+        if(rectIntersect(p, e) && !e.frozen){
+          if(p.type === POWERUP_TYPES.FIREBALL){
+            enemies.splice(j, 1);
+          } else if(p.type === POWERUP_TYPES.ICEBALL){
+            e.frozen = true;
+            e.freezeTime = 300;
+          }
+          projectiles.splice(i, 1);
+          break;
+        }
+      }
+    }
+  }
+
+  function checkPowerupPickup(){
+    for(let i=powerups.length -1; i>=0; i--){
+      const p = powerups[i];
+      if(rectIntersect(player,{...p, width:20, height:20})){
+        if(p.type === POWERUP_TYPES.FIREBALL){
+          player.fireballCount += 5;
+        } else if(p.type === POWERUP_TYPES.ICEBALL){
+          player.iceballCount += 5;
+        }
+        powerups.splice(i,1);
+      }
+    }
+  }
+
+  // Player movement input
+  function handleInput(){
+    if(keys['ArrowLeft']){
+      player.velocityX = -PLAYER_SPEED;
+    } else if(keys['ArrowRight']){
+      player.velocityX = PLAYER_SPEED;
+    } else {
+      player.velocityX = 0;
+    }
+  }
+
+  // Shoot projectile
+  function shootProjectile(type){
+    const dir = player.velocityX >= 0 ? 1 : -1;
+    projectiles.push({
+      type,
+      x: player.x + player.width/2 + dir*16,
+      y: player.y + player.height/2 + 5,
+      vx: dir*8,
+      vy: 0,
+      width: 16,
+      height: 16,
+      life: 150,
+    });
+  }
+
+  // Auto scroll to keep player visible
+  function autoScroll(){
+    if(player.x - scrollX < SCROLL_MARGIN){
+      scrollX = Math.max(0, player.x - SCROLL_MARGIN);
+    }
+    if(player.x - scrollX > canvas.width - SCROLL_MARGIN){
+      scrollX = Math.min(WORLD_WIDTH - canvas.width, player.x - (canvas.width - SCROLL_MARGIN));
+    }
+  }
+
+  // Draw functions
+  function drawPlayer(){
+    ctx.fillStyle = player.color;
+    ctx.fillRect(player.x - scrollX, player.y, player.width, player.height);
+  }
+
+  function drawPlatform(p){
+    if(p.type === PLATFORM_TYPES.SPIKY){
+      // spikes top edge
+      const spikesCount = Math.floor(p.width / 15);
+      for(let i=0; i<spikesCount; i++){
+        ctx.fillStyle = PLATFORM_COLORS[PLATFORM_TYPES.SPIKY];
+        ctx.beginPath();
+        ctx.moveTo(p.x - scrollX + i*15, p.y + p.height);
+        ctx.lineTo(p.x - scrollX + i*15 + 7.5, p.y + p.height - 15);
+        ctx.lineTo(p.x - scrollX + i*15 + 15, p.y + p.height);
+        ctx.fill();
+      }
+    } else {
+      ctx.fillStyle = PLATFORM_COLORS[p.type];
+      ctx.fillRect(p.x - scrollX, p.y, p.width, p.height);
+    }
+  }
+
+  function drawEnemy(e){
+    ctx.fillStyle = e.frozen ? '#90e0ef' : '#d62828';
+    ctx.fillRect(e.x - scrollX, e.y, e.width, e.height);
+    if(e.frozen){
+      ctx.fillStyle = 'white';
+      ctx.font = '20px serif';
+      ctx.fillText('❄️', e.x - scrollX + 4, e.y + e.height - 6);
+    } else {
+      ctx.fillStyle = 'black';
+      ctx.fillRect(e.x - scrollX + 6, e.y + 8, 6, 4);
+      ctx.fillRect(e.x - scrollX + 18, e.y + 8, 6, 4);
+    }
+  }
+
+  function drawPowerup(pu){
+    ctx.fillStyle = POWERUP_COLORS[pu.type] || 'yellow';
+    ctx.beginPath();
+    if(pu.type === POWERUP_TYPES.FIREBALL){
+      ctx.arc(pu.x - scrollX + 10, pu.y + 10, 10, 0, 2 * Math.PI);
+      ctx.fill();
+      ctx.fillStyle = '#b7410e';
+      ctx.font = "16px serif";
+      ctx.fillText('🔥', pu.x - scrollX + 5, pu.y + 16);
+    } else if(pu.type === POWERUP_TYPES.ICEBALL){
+      ctx.arc(pu.x - scrollX + 10, pu.y + 10, 10, 0, 2 * Math.PI);
+      ctx.fill();
+      ctx.fillStyle = '#055a8c';
+      ctx.font = "16px serif";
+      ctx.fillText('❄️', pu.x - scrollX + 5, pu.y + 16);
+    } else {
+      ctx.fillRect(pu.x - scrollX, pu.y, 20, 20);
+    }
+  }
+
+  function drawProjectile(p){
+    if(p.type === POWERUP_TYPES.FIREBALL){
+      ctx.fillStyle = '#f4a261';
+      ctx.beginPath();
+      ctx.arc(p.x - scrollX, p.y, 8, 0, Math.PI*2);
+      ctx.fill();
+      ctx.fillStyle = '#b7410e';
+      ctx.font = "16px serif";
+      ctx.fillText('🔥', p.x - scrollX -6, p.y +6);
+    } else if(p.type === POWERUP_TYPES.ICEBALL){
+      ctx.fillStyle = '#90e0ef';
+      ctx.beginPath();
+      ctx.arc(p.x - scrollX, p.y, 8, 0, Math.PI*2);
+      ctx.fill();
+      ctx.fillStyle = '#055a8c';
+      ctx.font = "16px serif";
+      ctx.fillText('❄️', p.x - scrollX -6, p.y +6);
+    } else {
+      ctx.fillStyle = 'black';
+      ctx.fillRect(p.x - scrollX, p.y - 4, 8, 8);
+    }
+  }
+
+  function drawHUD(){
+    ctx.fillStyle = 'black';
+    ctx.font = '16px Arial';
+    ctx.textAlign = 'left';
+    ctx.fillText(`Platforms type (Shift+Click to cycle): ${["Normal","Crumbling","Spiky","Bouncy"][currentPlType]}`, 10, 24);
+    ctx.fillText(`Fireballs (F): ${player.fireballCount}`, 10, 44);
+    ctx.fillText(`Iceballs (I): ${player.iceballCount}`, 10, 64);
+    ctx.fillText(`Enemies: ${enemies.length}`, 10, 84);
+    ctx.fillText(`Level width: ${WORLD_WIDTH}px (Scroll: mouse wheel)`, 10, 104);
+  }
+
+  // Main game loop
+  function gameLoop(){
+    ctx.clearRect(0,0,canvas.width, canvas.height);
+    handleInput();
+    updatePlayer();
+    updateEnemies();
+    updateProjectiles();
+    checkPowerupPickup();
+    autoScroll();
+
+    platforms.forEach(drawPlatform);
+    powerups.forEach(drawPowerup);
+    enemies.forEach(drawEnemy);
+    projectiles.forEach(drawProjectile);
+    drawPlayer();
+    drawHUD();
+
+    if(gameRunning) requestAnimationFrame(gameLoop);
+  }
+  // Save/load levels in localStorage as JSON strings
+  function saveLevel(name){
+    if(!name) return;
+    const levels = loadAllLevels();
+    // Build a simple level format with platforms, enemies and powerups
+    const levelData = {
+      platforms: platforms.map(p => ({x: p.x, y: p.y, width: p.width, height: p.height, type: p.type})),
+      enemies: enemies.map(e => ({x: e.x, y: e.y, vx: e.velocityX})),
+      powerups: powerups.map(pu => ({x: pu.x, y: pu.y, type: pu.type})),
+    };
+    levels[name] = levelData;
+    localStorage.setItem(STORAGE_LEVELS_KEY, JSON.stringify(levels));
+    alert('Level "' + name + '" saved!');
+  }
+  function loadAllLevels(){
+    let data = localStorage.getItem(STORAGE_LEVELS_KEY);
+    if(!data) return {};
+    try {
+      return JSON.parse(data);
+    } catch(e){
+      return {};
+    }
+  }
+
+  // Load a level by name
+  function loadLevel(name){
+    const levels = loadAllLevels();
+    if(!levels[name]){
+      alert('Level not found.');
+      return false;
+    }
+    initGameData(levels[name]);
+    return true;
+  }
+
+  // Populate levels list UI
+  function populateLevelsList(){
+    const levels = loadAllLevels();
+    levelsList.innerHTML = '';
+    const keys = Object.keys(levels);
+    if(keys.length === 0){
+      levelsList.innerHTML = '<p>No saved levels found. Build a new level first!</p>';
+      return;
+    }
+    keys.forEach(name => {
+      const btn = document.createElement('button');
+      btn.textContent = name;
+      btn.title = 'Play "' + name + '"';
+      btn.onclick = () => {
+        if(loadLevel(name)){
+          showGame();
+          startGame();
+        }
+      };
+      const delBtn = document.createElement('button');
+      delBtn.textContent = 'Del';
+      delBtn.style.backgroundColor = '#b5651d';
+      delBtn.style.marginLeft = '6px';
+      delBtn.onclick = (e) => {
+        e.stopPropagation();
+        if(confirm(`Delete level "${name}"?`)){
+          const lvls = loadAllLevels();
+          delete lvls[name];
+          localStorage.setItem(STORAGE_LEVELS_KEY, JSON.stringify(lvls));
+          populateLevelsList();
+        }
+      };
+      const div = document.createElement('div');
+      div.appendChild(btn);
+      div.appendChild(delBtn);
+      levelsList.appendChild(div);
+    });
+  }
+
+  // Prompt to save current level on back to home
+  function promptSaveBeforeExit(){
+    const saveName = prompt('Save current level? Enter name or cancel to skip:');
+    if(saveName && saveName.trim().length > 0){
+      saveLevel(saveName.trim());
+    }
+  }
+
+  // Start / Stop game loop control
+  let gameRunning = false;
+  function startGame(){
+    gameRunning = true;
+    gameLoop();
+  }
+  function stopGame(){
+    gameRunning = false;
+  }
+
+  // Build New Level button handler
+  btnBuildNew.onclick = () => {
+    initGameData();
+    showGame();
+    setupInput();
+    startGame();
+  };
+
+  // Play Saved Levels button handler
+  btnPlayLevels.onclick = () => {
+    populateLevelsList();
+    showLevels();
+  };
+
+  // Controls button handler
+  btnControls.onclick = () => {
+    showControls();
+  };
+
+  // Back buttons
+  btnBackFromGame.onclick = () => {
+    stopGame();
+    promptSaveBeforeExit();
+    showHome();
+  };
+  btnBackFromControls.onclick = () => {
+    showHome();
+  };
+  btnBackFromLevels.onclick = () => {
+    showHome();
+  };
+
+})();
+</script>
+
+</body>
+</html>
