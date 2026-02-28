@@ -2,12 +2,50 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Basketball Game</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Basketball Game Enhanced</title>
 <style>
-  body { margin:0; font-family:Arial; background:#111; color:#fff; }
-  #menu { padding:10px; background:#222; display:flex; flex-wrap:wrap; gap:10px; }
-  canvas { display:block; margin:auto; background:#0b6623; }
+  body { margin:0; font-family:Arial; background:#111; color:#fff; user-select:none; }
+  #menu {
+    padding:10px; background:#222; display:flex; flex-wrap:wrap; gap:15px; align-items:center;
+  }
+  #menu label, #menu > div { color:#ddd; }
+  #menu select, #menu button {
+    padding:6px 10px; border-radius:5px; border:none; background:#444; color:#fff; cursor:pointer;
+  }
+  #menu button:hover, #menu select:hover { background:#666; }
+  #controllerStatus { min-width:100px; }
+  canvas { display:block; margin:auto; background:#0b6623; touch-action:none; }
+  #hud {
+    position: fixed;
+    top: 10px; right: 10px; 
+    background: rgba(0,0,0,0.5);
+    padding: 8px 14px;
+    border-radius: 10px;
+    font-size: 16px;
+    line-height: 1.3;
+    user-select:none;
+  }
+  #pauseOverlay {
+    position: fixed; top:0; left:0; width:100vw; height:100vh;
+    background: rgba(0,0,0,0.8);
+    color:#fff;
+    display:flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size:1.8em;
+    display:none;
+  }
+  #tutorialPopup {
+    position: fixed; bottom: 5px; left: 50%; transform: translateX(-50%);
+    background: #333; padding: 15px 20px; border-radius: 15px;
+    font-size: 14px;
+    max-width: 400px;
+  }
+  #particleCanvas {
+    position: fixed; pointer-events:none; top:0; left:0; width: 100vw; height: 100vh; 
+  }
 </style>
 </head>
 <body>
@@ -24,7 +62,7 @@
   <label>AI Difficulty:
     <select id="difficulty">
       <option value="80">Easy</option>
-      <option value="130">Medium</option>
+      <option value="130" selected>Medium</option>
       <option value="200">Hard</option>
     </select>
   </label>
@@ -32,7 +70,7 @@
   <label>Shoot Button:
     <select id="shootBtn">
       <option value="0">Button 0 (A)</option>
-      <option value="1">Button 1 (B)</option>
+      <option value="1" selected>Button 1 (B)</option>
       <option value="2">Button 2 (X)</option>
       <option value="3">Button 3 (Y)</option>
     </select>
@@ -41,193 +79,625 @@
   <label>Pass Button:
     <select id="passBtn">
       <option value="1">Button 1 (B)</option>
-      <option value="0">Button 0 (A)</option>
+      <option value="0" selected>Button 0 (A)</option>
       <option value="2">Button 2 (X)</option>
       <option value="3">Button 3 (Y)</option>
     </select>
   </label>
 
   <button id="startBtn">Start Game</button>
+  <button id="pauseBtn" disabled>Pause</button>
+  <button id="restartBtn" disabled>Restart</button>
+
   <span id="controllerStatus">Controllers: 0</span>
 </div>
 
 <canvas id="gameCanvas" width="1000" height="500"></canvas>
+<canvas id="particleCanvas" width="1000" height="500"></canvas>
+
+<div id="hud" aria-live="polite">
+  Score: 0 - 0<br/>
+  Quarter: 1<br/>
+  Timer: 10:00<br/>
+  Possession: Team <span id="possessionDisplay">1</span><br/>
+  Shots Taken (You): 0, Shots Made: 0, %: 0
+</div>
+
+<div id="pauseOverlay">
+  <div>Game Paused</div>
+  <button id="resumeBtn">Resume</button>
+</div>
+
+<div id="tutorialPopup" role="dialog" aria-modal="true" aria-labelledby="tutorialTitle" tabindex="0">
+  <h2 id="tutorialTitle">How to Play</h2>
+  <p>Use WASD or Controller 1 to move your player.<br/>
+  Press Space or your Shoot button to shoot,<br/>
+  Press F or your Pass button to pass teammates.<br/>
+  Try to score before time runs out!<br/>
+  Press Start Game to begin.</p>
+  <button id="closeTutorial">Got it!</button>
+</div>
 
 <script>
-const canvas=document.getElementById('gameCanvas');
-const ctx=canvas.getContext('2d');
+(() => {
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+  const pCanvas = document.getElementById('particleCanvas');
+  const pctx = pCanvas.getContext('2d');
+  let settings = {
+    aiSpeed: 130,
+    shootBtn: 1,
+    passBtn: 0
+  };
+  let score = [0,0];
+  let possession = 0; // 0 or 1 for teams
+  let quarter = 1;
+  let maxQuarters = 4;
+  let quarterDuration = 10 * 60; // seconds, 10 minutes per quarter
+  let quarterTimeLeft = quarterDuration;
+  let gamePaused = false;
+  let gameStarted = false;
 
-let settings={ aiSpeed:80, shootBtn:0, passBtn:1 };
-let score=[0,0];
-let possession=0;
+  let connectedPads = [];
+  const keys = {};
+  let playersList = [];
+  let ball = null;
 
-let connectedPads=[];
-window.addEventListener('gamepadconnected',()=>updatePads());
-window.addEventListener('gamepaddisconnected',()=>updatePads());
+  // Stats
+  let stats = {
+    shotsTaken: 0,
+    shotsMade: 0,
+  };
 
-function updatePads(){
-  connectedPads = Array.from(navigator.getGamepads()).filter(g=>g);
-  document.getElementById('controllerStatus').textContent = `Controllers: ${connectedPads.length}`;
-}
+  // Store targets for rebinding
+  let rebinding = null;
 
-const keys={};
-window.addEventListener('keydown',e=>keys[e.key]=true);
-window.addEventListener('keyup',e=>keys[e.key]=false);
+  // Particle effect
+  const particles = [];
 
-const hoop={x:940,y:180,w:20,h:120};
-const threeLineX=760;
+  // TOUCH support
+  let touchPos = {x:null,y:null};
 
-class Player{
-  constructor(x,y,team,isAI=false,padIndex=null){
-    this.x=x; this.y=y; this.team=team; this.isAI=isAI;
-    this.hasBall=false;
-    this.padIndex=padIndex;
-  }
-  update(dt,ball){
-    let vx=0,vy=0;
-    const speed=this.isAI?settings.aiSpeed:220;
+  // --- Classes ---
+  // Player class
+  class Player {
+    constructor(x, y, team, isAI=false, padIndex=null, name='Player') {
+      this.x = x; this.y = y;
+      this.team = team;
+      this.isAI = isAI;
+      this.hasBall = false;
+      this.padIndex = padIndex;
+      this.name = name;
+      this.width = 28; this.height = 28;
+      this.speed = this.isAI ? settings.aiSpeed : 220;
+    }
 
-    if(this.isAI){
-      vx=Math.sign(ball.x-this.x)*speed;
-      vy=Math.sign(ball.y-this.y)*speed;
-      if(Math.hypot(this.x-ball.x,this.y-ball.y)<25){ this.hasBall=true; possession=this.team; }
-    } else {
-      if(this.padIndex!==null){
-        const gp=navigator.getGamepads()[this.padIndex];
+    update(dt, ball){
+      let vx=0, vy=0;
+      if(this.isAI){
+        this.speed = settings.aiSpeed;
+        this.AIupdate(dt, ball);
+        return;
+      }
+      // Human controls (keyboard)
+      if(this.padIndex !== null){
+        const gp = navigator.getGamepads()[this.padIndex];
         if(gp){
-          vx=gp.axes[0]*speed;
-          vy=gp.axes[1]*speed;
+          vx = gp.axes[0] * this.speed;
+          vy = gp.axes[1] * this.speed;
         }
       } else {
-        if(keys['a']) vx=-speed;
-        if(keys['d']) vx=speed;
-        if(keys['w']) vy=-speed;
-        if(keys['s']) vy=speed;
+        // WASD controls player 0 only
+        if(this.team===0){
+          if(keys['a']) vx = -this.speed;
+          if(keys['d']) vx = this.speed;
+          if(keys['w']) vy = -this.speed;
+          if(keys['s']) vy = this.speed;
+          // touch controls for team0
+          if(touchPos.x !== null && touchPos.y !== null) {
+            // Move toward touch with speed limit
+            const dx = touchPos.x - this.x;
+            const dy = touchPos.y - this.y;
+            const dist = Math.hypot(dx, dy);
+            if(dist > 5){
+              vx = (dx/dist) * this.speed;
+              vy = (dy/dist) * this.speed;
+            } else {
+              vx = 0; vy = 0;
+            }
+          }
+        }
       }
-      if(Math.hypot(this.x-ball.x,this.y-ball.y)<25){ this.hasBall=true; possession=this.team; }
+      this.x += vx*dt;
+      this.y += vy*dt;
+      // Keep inside canvas
+      this.x = Math.max(0, Math.min(canvas.width - this.width, this.x));
+      this.y = Math.max(0, Math.min(canvas.height - this.height, this.y));
+
+      if(this.hasBall){
+        ball.x = this.x + 15;
+        ball.y = this.y + 30 + Math.sin(Date.now()/80)*5;
+      }      
     }
 
-    this.x+=vx*dt;
-    this.y+=vy*dt;
+    AIupdate(dt, ball){
+      // Simple AI strategy: Defend or move to ball or offense positioning
+      this.speed = settings.aiSpeed;
 
-    if(this.hasBall){
-      ball.x=this.x+15;
-      ball.y=this.y+30 + Math.sin(Date.now()/80)*5;
+      // Defensive AI: if score difference high, more aggressive defense
+      const scoreDiff = score[1] - score[0]; 
+      const defendMode = (scoreDiff >= 3 && this.team === 1);
+
+      if(this.hasBall){
+        // Move toward hoop to shoot
+        const targetX = hoop.x - 30;
+        const dx = targetX - this.x;
+        this.x += Math.sign(dx)*this.speed*dt*0.8;
+      } else if(possession === this.team){
+        // Move to ball to get possession or help offense
+        const dx = ball.x - this.x;
+        const dy = ball.y - this.y;
+        const dist = Math.hypot(dx, dy);
+        if(dist > 20){
+          this.x += (dx/dist)*this.speed*dt;
+          this.y += (dy/dist)*this.speed*dt;
+        }
+      } else {
+        // Defensive positioning: guard opponents or block passes
+        if(defendMode){
+          // Move between ball and hoop x axis; y close to hoop center
+          const defendX = Math.max(hoop.x - 100, Math.min(ball.x, hoop.x - 50));
+          const dx = defendX - this.x;
+          const dy = hoop.y + hoop.h/2 - this.y;
+          this.x += Math.sign(dx)*this.speed*dt;
+          this.y += Math.sign(dy)*this.speed*dt;
+        } else {
+          // Stay near own basket or roam
+          let baseX = canvas.width - 100 - this.team*0; 
+          const dy = hoop.y + hoop.h/2 - this.y;
+          const dx = baseX - this.x;
+          this.x += Math.sign(dx)*this.speed*dt*0.5;
+          this.y += Math.sign(dy)*this.speed*dt*0.5;
+        }
+      }
+
+      // Boundaries
+      this.x = Math.max(0, Math.min(canvas.width - this.width, this.x));
+      this.y = Math.max(0, Math.min(canvas.height - this.height, this.y));
+
+      // If close to ball and ball free, grab it
+      if(possession === -1 && Math.hypot(this.x-ball.x,this.y-ball.y)<25){
+        this.hasBall = true;
+        possession = this.team;
+      }
     }
-  }
-  draw(){ ctx.fillStyle=this.team?"blue":"white"; ctx.fillRect(this.x,this.y,28,28); }
-}
 
-class Ball{
-  constructor(){ this.x=400; this.y=200; this.vx=0; this.vy=0; this.lastTeam=0; }
-  shoot(dir,team){
-    this.vx=dir*350;
-    this.vy=-220;
-    playersList.forEach(p=>p.hasBall=false);
-    possession=-1;
-    this.lastTeam=team;
-  }
-  passTo(player,team){
-    playersList.forEach(p=>p.hasBall=false);
-    player.hasBall=true;
-    possession=team;
-  }
-  update(dt){
-    if(possession===-1){
-      this.vy+=400*dt;
-      this.x+=this.vx*dt;
-      this.y+=this.vy*dt;
-      if(this.y>canvas.height-20){ this.y=canvas.height-20; this.vy*=-0.6; }
+    draw(){
+      ctx.fillStyle = this.team ? "blue" : "white";
+      ctx.fillRect(this.x, this.y, this.width, this.height);
+      // Draw name
+      ctx.fillStyle = "#fff";
+      ctx.font = "12px Arial";
+      ctx.fillText(this.name, this.x, this.y - 4);
+      // Highlight player with ball
+      if(this.hasBall){
+        ctx.strokeStyle = "yellow";
+        ctx.lineWidth = 3;
+        ctx.strokeRect(this.x-2, this.y-2, this.width+4, this.height+4);
+      }
+    }
+  } // end Player
+
+  class Ball {
+    constructor(){
+      this.x = 400; this.y = 200;
+      this.vx = 0; this.vy = 0;
+      this.lastTeam = 0;
     }
 
-    if(this.x>hoop.x && this.x<hoop.x+hoop.w && this.y>hoop.y && this.y<hoop.y+hoop.h){
-      const points = this.x<threeLineX?2:3;
-      score[this.lastTeam]+=points;
-      this.x=400; this.y=200; this.vx=0; this.vy=0;
-      possession=1-this.lastTeam;
+    shoot(dir, team){
+      if(possession !== team) return;
+      this.vx = dir * 450;
+      this.vy = -280;
+      playersList.forEach(p=>p.hasBall = false);
+      possession = -1;
+      this.lastTeam = team;
+      stats.shotsTaken++;
+      playSound('shoot');
     }
-  }
-  draw(){ ctx.beginPath(); ctx.arc(this.x,this.y,10,0,Math.PI*2); ctx.fillStyle='orange'; ctx.fill(); }
-}
 
-let playersList=[];
-let ball=new Ball();
+    passTo(player, team){
+      if(possession !== team) return;
+      playersList.forEach(p=>p.hasBall = false);
+      player.hasBall = true;
+      possession = team;
+    }
 
-function setupPlayers(){
-  playersList=[];
-  // player 1 keyboard or controller 0
-  playersList.push(new Player(100,200,0,false,connectedPads[0]?connectedPads[0].index:null));
+    update(dt){
+      if(possession === -1){
+        // Ball is flying, apply gravity
+        this.vy += 800 * dt; // gravity
+        this.x += this.vx * dt;
+        this.y += this.vy * dt;
 
-  // player 2 controller if available
-  if(connectedPads[1]) playersList.push(new Player(150,260,0,false,connectedPads[1].index));
+        // Floor bounce
+        if(this.y > canvas.height - 10){
+          this.y = canvas.height - 10;
+          this.vy *= -0.6;
+          this.vx *= 0.7;
+          if(Math.abs(this.vy) < 10) this.vy = 0;
+          if(Math.abs(this.vx) < 10) this.vx = 0;
+        }
+      } else {
+        // Following player
+        const player = playersList.find(p=>p.hasBall);
+        if(player) {
+          this.x = player.x + 15;
+          this.y = player.y + 30 + Math.sin(Date.now()/80)*5;
+        }
+      }
 
-  for(let i=0;i<5;i++) playersList.push(new Player(600+i*40,100+i*50,1,true));
-}
+      // Hoop collision - score detection
+      if(this.x > hoop.x && this.x < hoop.x + hoop.w && this.y > hoop.y && this.y < hoop.y + hoop.h){
+        const points = this.x < threeLineX ? 2 : 3;
+        score[this.lastTeam] += points;
+        if(this.lastTeam === 0) stats.shotsMade++;
+        possession = 1 - this.lastTeam;
+        this.x = 400; this.y = 200; this.vx = 0; this.vy = 0;
 
-startBtn.onclick=()=>{
-  const [w,h]=resolution.value.split('x');
-  canvas.width=parseInt(w);
-  canvas.height=parseInt(h);
-  settings.aiSpeed=parseInt(difficulty.value);
-  settings.shootBtn=parseInt(shootBtn.value);
-  settings.passBtn=parseInt(passBtn.value);
-  updatePads();
-  score=[0,0];
-  setupPlayers();
-};
+        createParticles(this.x, this.y, points);
 
-function gamepadActions(){
-  playersList.forEach(p=>{
-    if(p.padIndex===null || !p.hasBall) return;
-    const gp=navigator.getGamepads()[p.padIndex];
-    if(!gp) return;
-    if(gp.buttons[settings.shootBtn].pressed) ball.shoot(1,p.team);
-    if(gp.buttons[settings.passBtn].pressed){
-      const teammates=playersList.filter(tp=>tp.team===p.team && tp!==p);
-      let nearest=teammates[0];
-      let best=Infinity;
-      teammates.forEach(tp=>{
-        const d=Math.hypot(tp.x-p.x,tp.y-p.y);
-        if(d<best){ best=d; nearest=tp; }
+        playSound('score');
+        nextPossession();
+
+        // Check quarter time - (optional)
+      }
+    }
+
+    draw(){
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, 10, 0, Math.PI * 2);
+      ctx.fillStyle = "orange";
+      // Drop shadow for ball
+      ctx.shadowColor = "rgba(0,0,0,0.7)";
+      ctx.shadowBlur = 8;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      // Optional ball stripes
+      ctx.strokeStyle = "#fff";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, 6, Math.PI*0.25, Math.PI*1.25);
+      ctx.stroke();
+    }
+  } // end Ball
+
+  // --- Game vars ---
+  const hoop = {x:940,y:180,w:20,h:120};
+  const threeLineX = 760;
+  let lastTime=0;
+
+  // --- Particle system ---
+  function createParticles(x,y,points){
+    for(let i=0; i<30; i++){
+      particles.push({
+        x: x,
+        y: y,
+        vx: (Math.random()-0.5)*300,
+        vy: (Math.random()-1.5)*300,
+        life: 1,
+        size: 3 + Math.random()*3,
+        color: points===3 ? 'cyan' : 'yellow'
       });
-      ball.passTo(nearest,p.team);
+    }
+  }
+
+  function updateParticles(dt){
+    for(let i=particles.length-1; i>=0; i--){
+      let p = particles[i];
+      p.x += p.vx*dt;
+      p.y += p.vy*dt;
+      p.vy += 1000*dt;
+      p.life -= dt;
+      if(p.life <=0) particles.splice(i,1);
+    }
+  }
+
+  function drawParticles(){
+    pctx.clearRect(0,0,pCanvas.width,pCanvas.height);
+    particles.forEach(p=>{
+      pctx.globalAlpha = Math.max(p.life,0);
+      pctx.fillStyle = p.color;
+      pctx.beginPath();
+      pctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+      pctx.fill();
+    });
+    pctx.globalAlpha = 1;
+  }
+
+  // --- Gamepad management ---
+  function updatePads(){
+    connectedPads = Array.from(navigator.getGamepads()).filter(g => g);
+    document.getElementById('controllerStatus').textContent = `Controllers: ${connectedPads.length}`;
+  }
+
+  window.addEventListener('gamepadconnected', ()=> updatePads());
+  window.addEventListener('gamepaddisconnected', ()=> updatePads());
+
+  // -- Sounds --
+  const sounds = {};
+  function loadSounds(){
+    sounds.shoot = new Audio('https://actions.google.com/sounds/v1/foley/basketball_bounce.ogg');
+    sounds.score = new Audio('https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg');
+  }
+  function playSound(name){
+    if(sounds[name]){
+      sounds[name].currentTime=0;
+      sounds[name].play();
+    }
+  }
+
+  // -- Helpers and UI --
+
+  function formatTime(s){
+    let m = Math.floor(s/60);
+    let secs = Math.floor(s % 60);
+    return `${String(m).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+  }
+
+  function updateHUD(){
+    const hud = document.getElementById('hud');
+    hud.innerHTML = `Score: ${score[0]} - ${score[1]}<br/>
+                     Quarter: ${quarter}<br/>
+                     Timer: ${formatTime(quarterTimeLeft)}<br/>
+                     Possession: Team <span id="possessor">${possession+1}</span><br/>
+                     Shots Taken (You): ${stats.shotsTaken}, Shots Made: ${stats.shotsMade}, %: ${stats.shotsTaken===0?0:((stats.shotsMade/stats.shotsTaken)*100).toFixed(1)}`;
+  }
+
+  function nextPossession(){
+    possession = 1 - possession;
+  }
+
+  // --- Game setup ---
+  function setupPlayers(){
+    playersList = [];
+    // Human team 0
+    playersList.push(new Player(100, 200, 0, false, connectedPads[0] ? connectedPads[0].index : null, "You"));
+
+    // Support second player on controller1 if present
+    if(connectedPads[1]){
+      playersList.push(new Player(150, 260, 0, false, connectedPads[1].index, "P2"));
+    }
+
+    // AI team 1
+    for(let i=0; i<5; i++){
+      playersList.push(new Player(600 + i*40, 100 + i*50, 1, true, null, "AI" + (i+1)));
+    }
+
+    ball = new Ball();
+    possession = 0;
+    playersList[0].hasBall = true;
+
+    // Reset stats/time
+    score = [0,0];
+    quarter = 1;
+    quarterTimeLeft = quarterDuration;
+    stats.shotsMade = 0;
+    stats.shotsTaken = 0;
+    updateHUD();
+  }
+
+  // --- Input handlers ---
+  window.addEventListener('keydown', e => {
+    keys[e.key.toLowerCase()] = true;
+    if(!gameStarted) return;
+
+    const activePlayer = playersList.find(p => p.hasBall && p.team === 0);
+    if(!activePlayer) return;
+    if(e.key === ' ') ball.shoot(1, activePlayer.team);
+    if(e.key.toLowerCase() === 'f'){
+      const teammates = playersList.filter(tp => tp.team === 0 && tp !== activePlayer);
+      if(teammates.length === 0) return;
+      // Find nearest teammate
+      let nearest = teammates[0];
+      let bestDistance = Infinity;
+      for(const tp of teammates){
+        const dist = Math.hypot(tp.x - activePlayer.x, tp.y - activePlayer.y);
+        if(dist < bestDistance){
+          bestDistance = dist;
+          nearest = tp;
+        }
+      }
+      ball.passTo(nearest, activePlayer.team);
     }
   });
-}
+  window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
 
-window.addEventListener('keydown',e=>{
-  const p=playersList.find(p=>p.hasBall && p.team===0);
-  if(!p) return;
-  if(e.key===' ') ball.shoot(1,p.team);
-  if(e.key==='f'){
-    const teammates=playersList.filter(tp=>tp.team===0 && tp!==p);
-    let nearest=teammates[0];
-    let best=Infinity;
-    teammates.forEach(tp=>{
-      const d=Math.hypot(tp.x-p.x,tp.y-p.y);
-      if(d<best){ best=d; nearest=tp; }
+  // Touch support: tap/click canvas to move player (team 0 only)
+  canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    if(gamePaused) return;
+    let rect = canvas.getBoundingClientRect();
+    let touch = e.touches[0];
+    touchPos.x = touch.clientX - rect.left;
+    touchPos.y = touch.clientY - rect.top;
+  }, {passive: false});
+
+  canvas.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    if(gamePaused) return;
+    let rect = canvas.getBoundingClientRect();
+    let touch = e.touches[0];
+    touchPos.x = touch.clientX - rect.left;
+    touchPos.y = touch.clientY - rect.top;
+  }, {passive: false});
+
+  canvas.addEventListener('touchend', (e) => {
+    touchPos.x = null;
+    touchPos.y = null;
+  });
+
+  // Gamepad actions - shooting and passing
+  function gamepadActions(){
+    playersList.forEach(p => {
+      if(p.padIndex === null || !p.hasBall) return;
+      const gp = navigator.getGamepads()[p.padIndex];
+      if(!gp) return;
+      // Shoot
+      if(gp.buttons[settings.shootBtn].pressed) ball.shoot(1, p.team);
+      // Pass
+      if(gp.buttons[settings.passBtn].pressed){
+        const teammates = playersList.filter(tp => tp.team === p.team && tp !== p);
+        if(teammates.length === 0) return;
+        // nearest teammate for pass
+        let nearest = teammates[0];
+        let best = Infinity;
+        teammates.forEach(tp =>{
+          const d = Math.hypot(tp.x - p.x, tp.y - p.y);
+          if(d < best){
+            best = d;
+            nearest = tp;
+          }
+        });
+        ball.passTo(nearest, p.team);
+      }
     });
-    ball.passTo(nearest,p.team);
   }
-});
 
-function update(dt){ playersList.forEach(p=>p.update(dt,ball)); ball.update(dt); gamepadActions(); }
+  // --- Game Loop ---
+  function update(dt){
+    if(gamePaused || !gameStarted) return;
 
-function draw(){
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  ctx.fillStyle='#fff'; ctx.font='24px Arial';
-  ctx.fillText(`Score: ${score[0]} - ${score[1]}`,20,30);
+    // Update quarter time
+    quarterTimeLeft -= dt;
+    if(quarterTimeLeft <= 0){
+      quarter++;
+      if(quarter > maxQuarters){
+        gamePaused = true;
+        pauseOverlay.style.display = 'flex';
+        alert(`Game Over!\nFinal Score: ${score[0]} - ${score[1]}`);
+        return;
+      }
+      quarterTimeLeft = quarterDuration;
+    }
 
-  ctx.fillStyle='red'; ctx.fillRect(hoop.x,hoop.y,hoop.w,hoop.h);
-  ctx.strokeStyle='yellow'; ctx.beginPath(); ctx.moveTo(threeLineX,0); ctx.lineTo(threeLineX,canvas.height); ctx.stroke();
+    playersList.forEach(p => p.update(dt, ball));
+    ball.update(dt);
 
-  playersList.forEach(p=>p.draw());
-  ball.draw();
-}
+    gamepadActions();
+    updateParticles(dt);
 
-let last=0;
-function loop(ts){ const dt=(ts-last)/1000; last=ts; update(dt); draw(); requestAnimationFrame(loop);} 
-requestAnimationFrame(loop);
+    updateHUD();
+  }
+
+  function draw(){
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // Draw score
+    ctx.fillStyle = '#fff';
+    ctx.font = '24px Arial';
+    ctx.fillText(`Score: ${score[0]} - ${score[1]}`, 20, 30);
+
+    // Draw hoop
+    ctx.fillStyle = 'red';
+    ctx.fillRect(hoop.x, hoop.y, hoop.w, hoop.h);
+
+    // Draw 3-point line
+    ctx.strokeStyle = 'yellow';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(threeLineX, 0);
+    ctx.lineTo(threeLineX, canvas.height);
+    ctx.stroke();
+
+    // Draw players
+    playersList.forEach(p => p.draw());
+
+    // Draw ball
+    ball.draw();
+
+    drawParticles();
+  }
+
+  function loop(ts) {
+    if(!lastTime) lastTime = ts;
+    const dt = (ts - lastTime) / 1000;
+    lastTime = ts;
+
+    update(dt);
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  // --- Setup and Events ---
+
+  const resolution = document.getElementById('resolution');
+  const difficulty = document.getElementById('difficulty');
+  const shootBtn = document.getElementById('shootBtn');
+  const passBtn = document.getElementById('passBtn');
+  const startBtn = document.getElementById('startBtn');
+  const pauseBtn = document.getElementById('pauseBtn');
+  const restartBtn = document.getElementById('restartBtn');
+  const pauseOverlay = document.getElementById('pauseOverlay');
+  const resumeBtn = document.getElementById('resumeBtn');
+  const tutorialPopup = document.getElementById('tutorialPopup');
+  const closeTutorial = document.getElementById('closeTutorial');
+
+  startBtn.addEventListener('click', () => {
+    const [w, h] = resolution.value.split('x').map(Number);
+    canvas.width = w;
+    canvas.height = h;
+    pCanvas.width = w;
+    pCanvas.height = h;
+
+    settings.aiSpeed = parseInt(difficulty.value, 10);
+    settings.shootBtn = parseInt(shootBtn.value, 10);
+    settings.passBtn = parseInt(passBtn.value, 10);
+    updatePads();
+
+    setupPlayers();
+
+    gamePaused = false;
+    gameStarted = true;
+    pauseBtn.disabled = false;
+    restartBtn.disabled = false;
+
+    pauseOverlay.style.display = 'none';
+    tutorialPopup.style.display = 'block';
+
+    lastTime = 0;
+    requestAnimationFrame(loop);
+  });
+
+  pauseBtn.addEventListener('click', () => {
+    if(gamePaused){
+      gamePaused = false;
+      pauseOverlay.style.display = 'none';
+      lastTime = performance.now();
+    } else {
+      gamePaused = true;
+      pauseOverlay.style.display = 'flex';
+    }
+  });
+
+  restartBtn.addEventListener('click', () => {
+    setupPlayers();
+    gamePaused = false;
+    pauseOverlay.style.display = 'none';
+  });
+
+  closeTutorial.addEventListener('click', () => {
+    tutorialPopup.style.display = 'none';
+  });
+
+  // Rebinding example (to demonstrate control rebinding UI idea)
+  // For brevity, rebinding UI not fully implemented here,
+  // but you can add buttons and trigger rebinding state.
+
+  loadSounds();
+  updatePads();
+
+})();
 </script>
+
 </body>
 </html>
