@@ -1,21 +1,29 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Emoji Slot Arcade</title>
 <style>
   body {
     font-family: Arial, sans-serif;
+    margin: 0; padding: 0;
+    background: #f5f5f5;
+    transition: background 0.3s;
+    overflow-x: hidden;
+  }
+  #gamePage {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     height: 100vh;
-    background: #f5f5f5;
-    transition: background 0.3s;
   }
-  .slots { display: flex; gap: 20px; margin: 20px; }
+  .slots {
+    display: flex;
+    gap: 20px;
+    margin: 20px;
+  }
   .slot {
     font-size: 80px;
     background: white;
@@ -34,43 +42,109 @@
     background: #4f46e5;
     color: white;
   }
-  .stats { margin: 6px; }
-  #confetti { position: fixed; top: 10px; font-size: 30px; }
+  .stats {
+    margin: 6px;
+  }
+  #confetti {
+    position: fixed;
+    top: 10px;
+    font-size: 30px;
+  }
+  #coinOverlay {
+    position: fixed;
+    top: 6px;
+    right: 6px;
+    background: rgba(79, 70, 229, 0.85);
+    color: white;
+    font-weight: bold;
+    font-size: 1.1em;
+    padding: 8px 14px;
+    border-radius: 12px;
+    user-select: none;
+    z-index: 1000;
+    display: none;
+  }
+  #homePage {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background: #4f46e5;
+    color: white;
+  }
+  #homePage h1 {
+    font-size: 3em;
+    margin-bottom: 30px;
+  }
+  #homePage button {
+    font-size: 1.3em;
+    padding: 15px 30px;
+    border-radius: 20px;
+    background: white;
+    color: #4f46e5;
+    font-weight: bold;
+    border: none;
+    cursor: pointer;
+  }
+  #themeShop {
+    margin: 15px 0;
+  }
 </style>
 </head>
 <body id="page">
 
-<h1>Emoji Slot Arcade 🎰</h1>
-
-<div>
-Theme Shop:
-<button onclick="buyTheme('#fde68a',50)">Gold (50 coins)</button>
-<button onclick="buyTheme('#bfdbfe',50)">Blue (50 coins)</button>
-<button onclick="buyTheme('#fecdd3',50)">Pink (50 coins)</button>
-<button onclick="buyTheme('#bbf7d0',50)">Green (50 coins)</button>
+<div id="homePage">
+  <h1>Emoji Slot Arcade 🎰</h1>
+  <button onclick="startGame()">Play</button>
 </div>
 
-<div class="slots">
-  <div class="slot" id="slot1">😀</div>
-  <div class="slot" id="slot2">😀</div>
-  <div class="slot" id="slot3">😀</div>
+<div id="coinOverlay">Coins: 0</div>
+
+<div id="gamePage" style="display:none;">
+  <div id="themeShop">
+    Theme Shop:<br />
+    <button onclick="buyTheme('#fde68a',50)">Gold (50 coins)</button>
+    <button onclick="buyTheme('#bfdbfe',50)">Blue (50 coins)</button>
+    <button onclick="buyTheme('#fecdd3',50)">Pink (50 coins)</button>
+    <button onclick="buyTheme('#bbf7d0',50)">Green (50 coins)</button><br />
+    Animal Pack (🐕🐯🐢🐀🐈🐆) - 50 coins: 
+    <button onclick="buyEmojiPack(animalPack,50)">Buy</button><br />
+    Car Pack (🚗🏎️🚓🚕🚒🚛) - 70 coins: 
+    <button onclick="buyEmojiPack(carPack,70)">Buy</button><br />
+    Aquatic Pack (🐙🐠🦈🐳🦀🐬) - 90 coins: 
+    <button onclick="buyEmojiPack(aquaticPack,90)">Buy</button><br />
+    Mutation Pack (🧜🏻‍♂️🧚🏻‍♂️🧞‍♂️🧟‍♂️🧝🏻‍♂️🧛🏻‍♂️) - 500 coins: 
+    <button onclick="buyEmojiPack(mutationPack,500)">Buy</button><br />
+  </div>
+
+  <div class="slots">
+    <div class="slot" id="slot1">😀</div>
+    <div class="slot" id="slot2">😀</div>
+    <div class="slot" id="slot3">😀</div>
+  </div>
+
+  <button onclick="spin()">Spin (1 coin)</button>
+  <button onclick="resetGame()">Reset Game</button>
+
+  <div id="result"></div>
+  <div class="stats" id="score"></div>
+  <div class="stats" id="coins"></div>
+  <div class="stats" id="level"></div>
+  <div class="stats" id="streak"></div>
+  <div class="stats" id="achievements"></div>
+  <div id="confetti"></div>
 </div>
-
-<button onclick="spin()">Spin (1 coin)</button>
-<button onclick="resetGame()">Reset Game</button>
-
-<div id="result"></div>
-<div class="stats" id="score"></div>
-<div class="stats" id="coins"></div>
-<div class="stats" id="level"></div>
-<div class="stats" id="streak"></div>
-<div class="stats" id="achievements"></div>
-<div id="confetti"></div>
 
 <script>
-const baseEmojis = ["😀","😁","😂","🤣","😃","😄","😅","😆","😉","😊","😍","🤩","🤠","🥳", "🥲", ];
+const baseEmojis = ["😀","😁","😂","🤣","😃","😄","😅","😆","😉","😊","😍","🤩","🤠","🥳", "🥲"];
 const unlockPack = ["👻","💀","🤖","👽","🎃","😈","👑","💎", "💙", "🔥"];
 const goldenEmoji = "🌟";
+
+const animalPack = ["🐕","🐯","🐢","🐀","🐈","🐆"];
+const carPack = ["🚗","🏎️","🚓","🚕","🚒","🚛"];
+const aquaticPack = ["🐙","🐠","🦈","🐳","🦀","🐬"];
+const mutationPack = ["🧜🏻‍♂️","🧚🏻‍♂️","🧞‍♂️","🧟‍♂️","🧝🏻‍♂️","🧛🏻‍♂️"];
 
 let emojis = [...baseEmojis];
 let score = 0;
@@ -79,9 +153,19 @@ let level = 1;
 let streak = 0;
 let achievements = [];
 let ownedThemes = [];
+let ownedPacks = [];
+
+const scoreEl = document.getElementById('score');
+const coinsEl = document.getElementById('coins');
+const levelEl = document.getElementById('level');
+const streakEl = document.getElementById('streak');
+const achievementsEl = document.getElementById('achievements');
+const coinOverlay = document.getElementById('coinOverlay');
 
 function save() {
-  localStorage.setItem('emojiArcade', JSON.stringify({score, coins, level, streak, achievements, emojis, theme: document.body.style.background, ownedThemes}));
+  localStorage.setItem('emojiArcade', JSON.stringify({
+    score, coins, level, streak, achievements, emojis, theme: document.body.style.background, ownedThemes, ownedPacks
+  }));
 }
 
 function load() {
@@ -94,6 +178,7 @@ function load() {
     achievements = data.achievements;
     emojis = data.emojis;
     ownedThemes = data.ownedThemes || [];
+    ownedPacks = data.ownedPacks || [];
     if (data.theme) document.body.style.background = data.theme;
   }
 }
@@ -107,10 +192,26 @@ function confetti() {
 function buyTheme(color, cost) {
   if (coins < cost) return alert('Not enough coins');
   coins -= cost;
-  ownedThemes.push(color);
+  if (!ownedThemes.includes(color)) ownedThemes.push(color);
   document.body.style.background = color;
   save();
   updateUI();
+}
+
+function buyEmojiPack(pack, cost) {
+  if (coins < cost) return alert('Not enough coins');
+  // Add emojis from pack if not already owned
+  let alreadyOwned = pack.every(e => emojis.includes(e));
+  if (alreadyOwned) {
+    alert('You already own this pack.');
+    return;
+  }
+  coins -= cost;
+  emojis = [...new Set([...emojis, ...pack])];
+  ownedPacks.push(pack.join(''));
+  save();
+  updateUI();
+  alert('Pack purchased! Happy spinning!');
 }
 
 function updateUI() {
@@ -118,7 +219,8 @@ function updateUI() {
   coinsEl.textContent = 'Coins: ' + coins;
   levelEl.textContent = 'Level: ' + level;
   streakEl.textContent = 'Streak: ' + streak;
-  achievementsEl.textContent = 'Achievements: ' + achievements.join(', ');
+  achievementsEl.textContent = 'Achievements: ' + (achievements.length ? achievements.join(', ') : 'None');
+  coinOverlay.textContent = 'Coins: ' + coins;
 }
 
 function randomEmoji() {
@@ -194,12 +296,24 @@ function spin() {
 
 function resetGame() {
   score = 0; coins = 20; level = 1; streak = 0; achievements = [];
-  emojis = [...baseEmojis]; ownedThemes = [];
-  save(); updateUI();
+  emojis = [...baseEmojis];
+  ownedThemes = [];
+  ownedPacks = [];
+  document.body.style.background = '#f5f5f5';
+  save();
+  updateUI();
+}
+
+function startGame() {
+  document.getElementById('homePage').style.display = 'none';
+  document.getElementById('gamePage').style.display = 'flex';
+  coinOverlay.style.display = 'block';
+  load();
+  updateUI();
 }
 
 load();
-updateUI();
+
 </script>
 
 </body>
