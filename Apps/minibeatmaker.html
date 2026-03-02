@@ -4,132 +4,469 @@
 <meta charset="UTF-8">
 <title>Mini Beat Maker</title>
 <style>
-body{
-  background:#111;
-  color:white;
-  font-family:Arial;
-  text-align:center;
-}
-.grid{
-  display:grid;
-  grid-template-columns:repeat(8,40px);
-  gap:5px;
-  justify-content:center;
-  margin:10px;
-}
-button.step{
-  width:40px;
-  height:40px;
-  background:#333;
-  border:none;
-  cursor:pointer;
-}
-button.active{
-  background:#00d4ff;
-}
+  body{
+    background:#111;
+    color:white;
+    font-family:Arial, sans-serif;
+    text-align:center;
+    margin:0; padding:10px;
+  }
+  h2,h3 {
+    margin:10px 0 5px 0;
+  }
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(8,40px);
+    gap:5px;
+    justify-content:center;
+    margin:5px auto 15px auto;
+  }
+  button.step{
+    width:40px;
+    height:40px;
+    background:#333;
+    border:none;
+    cursor:pointer;
+    position:relative;
+  }
+  button.step.level1 {
+    background:#0077b6;
+  }
+  button.step.level2 {
+    background:#00d4ff;
+  }
+  button.step.level3 {
+    background:#90e0ef;
+  }
+  button.step.current {
+    box-shadow: 0 0 8px 3px #ffea00;
+  }
+  #controls {
+    margin: 15px 0;
+  }
+  label {
+    user-select:none;
+  }
+  input[type=range] {
+    cursor:pointer;
+  }
+  .volume-control {
+    margin: 0 15px;
+    display: inline-block;
+    width: 120px;
+  }
+  .instrument-container {
+    margin-bottom: 10px;
+  }
+  #metronome {
+    width: 20px;
+    height: 20px;
+    background: #222;
+    border-radius: 50%;
+    margin: 0 auto 20px auto;
+    box-shadow: 0 0 0 #ffea00;
+    transition: box-shadow 0.1s;
+  }
+  @media (max-width: 480px) {
+    .grid {
+      grid-template-columns: repeat(8, 30px);
+      gap: 3px;
+    }
+    button.step {
+      width: 30px;
+      height: 30px;
+    }
+    .volume-control {
+      width: 90px;
+      font-size: 14px;
+    }
+  }
 </style>
 </head>
 <body>
 
-<h2>Mini Beat Maker</h2>
+<h2>Mini Beat Maker 🎵</h2>
 
-<label>BPM: <span id="bpmval">120</span></label><br>
+<div id="metronome" aria-label="Beat indicator"></div>
+
+<label for="bpm">BPM: <span id="bpmval">120</span></label><br>
 <input type="range" id="bpm" min="60" max="200" value="120">
 
-<h3>Kick</h3>
-<div id="kick" class="grid"></div>
+<label for="swing">Swing: <span id="swingVal">0%</span></label><br>
+<input type="range" id="swing" min="0" max="50" value="0">
 
-<h3>Snare</h3>
-<div id="snare" class="grid"></div>
+<h3>Instruments & Patterns</h3>
 
-<h3>HiHat</h3>
-<div id="hat" class="grid"></div>
+<div id="instruments"></div>
 
-<button onclick="start()">Start</button>
-<button onclick="stop()">Stop</button>
+<div id="controls">
+  <button id="playpause">Play</button>
+  <button id="save">Save Pattern</button>
+  <button id="load">Load Pattern</button>
+  <button id="clear">Clear Pattern</button>
+</div>
 
 <script>
-const steps = 8;
-const rows = ["kick","snare","hat"];
-let gridData = {
-  kick: new Array(steps).fill(false),
-  snare: new Array(steps).fill(false),
-  hat: new Array(steps).fill(false)
-};
+  const steps = 8;
 
-rows.forEach(r=>{
-  const div=document.getElementById(r);
-  for(let i=0;i<steps;i++){
-    const btn=document.createElement("button");
-    btn.className="step";
-    btn.onclick=()=>{
-      gridData[r][i]=!gridData[r][i];
-      btn.classList.toggle("active");
+  // Define instruments with sample playback functions & default volume
+  const instruments = {
+    kick: {
+      play(){
+        let osc=ctx.createOscillator();
+        let gain=ctx.createGain();
+        osc.frequency.setValueAtTime(150, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(0.001, ctx.currentTime+0.5);
+        gain.gain.setValueAtTime(1 * this.vol, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+0.5);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime+0.5);
+      }, 
+      vol: 1
+    },
+    snare: {
+      play(){
+        let noise=ctx.createBufferSource();
+        let buffer=ctx.createBuffer(1,44100,44100);
+        let data=buffer.getChannelData(0);
+        for(let i=0;i<data.length;i++) data[i]=Math.random()*2-1;
+        noise.buffer=buffer;
+        let gain=ctx.createGain();
+        gain.gain.setValueAtTime(1 * this.vol, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime+0.2);
+        noise.connect(gain).connect(ctx.destination);
+        noise.start();
+      }, 
+      vol: 1
+    },
+    hat: {
+      play(){
+        let osc=ctx.createOscillator();
+        let gain=ctx.createGain();
+        osc.type="square";
+        osc.frequency.value=8000;
+        gain.gain.setValueAtTime(0.3 * this.vol, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime+0.05);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime+0.05);
+      }, 
+      vol: 1
+    },
+    clap: {
+      play(){
+        // Using noise burst + bandpass to simulate clap
+        let noise=ctx.createBufferSource();
+        let buffer=ctx.createBuffer(1,ctx.sampleRate*0.1,ctx.sampleRate);
+        let data=buffer.getChannelData(0);
+        for(let i=0; i<data.length; i++) data[i]=Math.random()*2-1;
+        noise.buffer=buffer;
+
+        let bandpass=ctx.createBiquadFilter();
+        bandpass.type = 'bandpass';
+        bandpass.frequency.value = 1000;
+
+        let gain=ctx.createGain();
+        gain.gain.setValueAtTime(1 * this.vol, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime+0.05);
+
+        noise.connect(bandpass).connect(gain).connect(ctx.destination);
+        noise.start();
+      },
+      vol:1
+    },
+    tom: {
+      play(){
+        let osc=ctx.createOscillator();
+        let gain=ctx.createGain();
+        osc.frequency.setValueAtTime(200, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(100, ctx.currentTime+0.3);
+        gain.gain.setValueAtTime(0.8 * this.vol, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+0.3);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime+0.3);
+      },
+      vol:1
+    },
+    cymbal: {
+      play(){
+        // Simulate cymbal with noise + highpass
+        let noise=ctx.createBufferSource();
+        let buffer=ctx.createBuffer(1,ctx.sampleRate*0.2,ctx.sampleRate);
+        let data=buffer.getChannelData(0);
+        for(let i=0; i<data.length; i++) data[i]=Math.random()*2-1;
+        noise.buffer=buffer;
+        let highpass=ctx.createBiquadFilter();
+        highpass.type='highpass';
+        highpass.frequency.value=7000;
+        let gain=ctx.createGain();
+        gain.gain.setValueAtTime(0.6 * this.vol, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime+0.2);
+        noise.connect(highpass).connect(gain).connect(ctx.destination);
+        noise.start();
+      },
+      vol:1
+    }
+  };
+
+  // Add gridData with velocity 0 (off) to 3 (max) per instrument and step
+  let gridData = {};
+  Object.keys(instruments).forEach(inst => {
+    gridData[inst] = new Array(steps).fill(0);
+  });
+
+  const bpmSlider = document.getElementById("bpm");
+  const bpmVal = document.getElementById("bpmval");
+  bpmVal.textContent = bpmSlider.value;
+  bpmSlider.oninput = () => {
+    bpmVal.textContent = bpmSlider.value;
+    if(isPlaying) start(); // restart timer with new bpm
+  };
+
+  const swingSlider = document.getElementById("swing");
+  const swingVal = document.getElementById("swingVal");
+  swingVal.textContent = swingSlider.value + "%";
+
+  swingSlider.oninput = () => {
+    swingVal.textContent = swingSlider.value + "%";
+    if(isPlaying) start(); // restart timer with new swing
+  };
+
+  // Create UI for instruments, grids and volume
+  const instrumentsContainer = document.getElementById("instruments");
+
+  // Store buttons references for highlighting and velocity display
+  let buttonRefs = {};
+  let volumeControls = {};
+
+  function createStepButton(inst, step) {
+    let btn = document.createElement("button");
+    btn.className = "step";
+    btn.title = `${inst.toUpperCase()} step ${step+1}, velocity: off`;
+    btn.dataset.inst = inst;
+    btn.dataset.step = step;
+    btn.dataset.level = 0; // velocity level: 0-3
+
+    btn.onclick = () => {
+      // cycle velocity 0(no sound) -> 1 -> 2 -> 3 -> 0 ...
+      let lvl = (parseInt(btn.dataset.level) + 1) % 4;
+      btn.dataset.level = lvl;
+      gridData[inst][step] = lvl;
+      // Update class for color
+      btn.classList.remove("level1", "level2", "level3");
+      if(lvl === 1) btn.classList.add("level1");
+      else if(lvl === 2) btn.classList.add("level2");
+      else if(lvl === 3) btn.classList.add("level3");
+      btn.title = `${inst.toUpperCase()} step ${step+1}, velocity: ${lvl === 0 ? 'off' : lvl}`;
     };
-    div.appendChild(btn);
+
+    return btn;
   }
-});
 
-const bpmSlider=document.getElementById("bpm");
-bpmSlider.oninput=()=>document.getElementById("bpmval").textContent=bpmSlider.value;
+  function createInstrumentGrid(inst){
+    let container = document.createElement("div");
+    container.className = "instrument-container";
 
-let ctx=new (window.AudioContext||window.webkitAudioContext)();
-let interval;
-let currentStep=0;
+    let title = document.createElement("h3");
+    title.textContent = inst.charAt(0).toUpperCase() + inst.slice(1);
+    container.appendChild(title);
 
-function playKick(){
-  let osc=ctx.createOscillator();
-  let gain=ctx.createGain();
-  osc.frequency.setValueAtTime(150,ctx.currentTime);
-  osc.frequency.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.5);
-  gain.gain.setValueAtTime(1,ctx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.5);
-  osc.connect(gain).connect(ctx.destination);
-  osc.start();
-  osc.stop(ctx.currentTime+0.5);
-}
+    // create grid of step buttons
+    let grid = document.createElement("div");
+    grid.className = "grid";
+    buttonRefs[inst] = [];
 
-function playSnare(){
-  let noise=ctx.createBufferSource();
-  let buffer=ctx.createBuffer(1,44100,44100);
-  let data=buffer.getChannelData(0);
-  for(let i=0;i<data.length;i++) data[i]=Math.random()*2-1;
-  noise.buffer=buffer;
-  let gain=ctx.createGain();
-  gain.gain.setValueAtTime(1,ctx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.01,ctx.currentTime+0.2);
-  noise.connect(gain).connect(ctx.destination);
-  noise.start();
-}
+    for(let i=0; i<steps; i++){
+      let btn = createStepButton(inst, i);
+      grid.appendChild(btn);
+      buttonRefs[inst].push(btn);
+    }
+    container.appendChild(grid);
 
-function playHat(){
-  let osc=ctx.createOscillator();
-  let gain=ctx.createGain();
-  osc.type="square";
-  osc.frequency.value=8000;
-  gain.gain.setValueAtTime(0.3,ctx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.01,ctx.currentTime+0.05);
-  osc.connect(gain).connect(ctx.destination);
-  osc.start();
-  osc.stop(ctx.currentTime+0.05);
-}
+    // volume slider
+    let volContainer = document.createElement("div");
+    volContainer.className = "volume-control";
 
-function tick(){
-  if(gridData.kick[currentStep]) playKick();
-  if(gridData.snare[currentStep]) playSnare();
-  if(gridData.hat[currentStep]) playHat();
-  currentStep=(currentStep+1)%steps;
-}
+    let volLabel = document.createElement("label");
+    volLabel.for = `${inst}-volume`;
+    volLabel.textContent = "Volume";
 
-function start(){
-  stop();
-  let intervalTime=(60/bpmSlider.value)/2*1000;
-  interval=setInterval(tick,intervalTime);
-}
+    let volSlider = document.createElement("input");
+    volSlider.type = "range";
+    volSlider.min = 0;
+    volSlider.max = 1;
+    volSlider.step = 0.01;
+    volSlider.value = instruments[inst].vol;
+    volSlider.id = `${inst}-volume`;
 
-function stop(){
-  clearInterval(interval);
-}
+    volSlider.oninput = () => {
+      instruments[inst].vol = parseFloat(volSlider.value);
+    };
+
+    volContainer.appendChild(volLabel);
+    volContainer.appendChild(document.createElement("br"));
+    volContainer.appendChild(volSlider);
+
+    container.appendChild(volContainer);
+
+    instrumentsContainer.appendChild(container);
+  }
+
+  Object.keys(instruments).forEach(inst => createInstrumentGrid(inst));
+
+  // Audio context
+  let ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+  let currentStep = 0;
+  let isPlaying = false;
+  let timer;
+  let nextStepTime = 0;
+  let swingFactor = 0;
+
+  // Metronome flash
+  const metronome = document.getElementById("metronome");
+
+  // Highlight current step
+  function highlightStep(step) {
+    Object.keys(buttonRefs).forEach(inst => {
+      buttonRefs[inst].forEach((btn, idx) => {
+        btn.classList.toggle("current", idx === step);
+      });
+    });
+  }
+
+  // Scheduler approach to improve timing accuracy
+  function scheduler() {
+    const lookahead = 0.1; // seconds
+    const scheduleAheadTime = 0.1; // seconds
+
+    while(nextStepTime < ctx.currentTime + scheduleAheadTime) {
+      playStep(currentStep, nextStepTime);
+      scheduleMetronome(currentStep, nextStepTime);
+      currentStep = (currentStep + 1) % steps;
+      let intervalTime = (60 / bpmSlider.value) / 2;
+      // Apply swing, even steps get delayed by swing factor * interval
+      if(currentStep % 2 === 1) {
+        nextStepTime += intervalTime * (1 + swingFactor);
+      } else {
+        nextStepTime += intervalTime * (1 - swingFactor);
+      }
+    }
+    timer = setTimeout(scheduler, lookahead * 1000 / 2);
+  }
+
+  function playStep(step, time) {
+    highlightStep(step);
+    Object.keys(gridData).forEach(inst => {
+      const velocity = gridData[inst][step];
+      if(velocity > 0){
+        // set volume based on velocity (0.3 to 1.0)
+        instruments[inst].vol = velocity / 3;
+        instruments[inst].play(time);
+      }
+    });
+  }
+
+  function scheduleMetronome(step, time) {
+    // Flash metronome on downbeat (step 0 and every 4 steps)
+    if(step % 4 === 0) {
+      setTimeout(() => {
+        metronome.style.boxShadow = "0 0 15px 10px #ffea00";
+        setTimeout(() => {
+          metronome.style.boxShadow = "0 0 0 #ffea00";
+        }, 100);
+      }, (time - ctx.currentTime) * 1000);
+    }
+  }
+
+  function start(){
+    if(ctx.state === 'suspended') ctx.resume();
+    if(isPlaying) stop();
+
+    swingFactor = swingSlider.value / 100 / 2; // Max ~25% swing max
+
+    currentStep = 0;
+    nextStepTime = ctx.currentTime + 0.05;
+    isPlaying = true;
+    scheduler();
+    playpauseBtn.textContent = "Pause";
+  }
+
+  function stop(){
+    isPlaying = false;
+    clearTimeout(timer);
+    highlightStep(-1);
+    playpauseBtn.textContent = "Play";
+  }
+
+  // Play/Pause toggle button
+  const playpauseBtn = document.getElementById("playpause");
+  playpauseBtn.onclick = () => {
+    if(isPlaying) stop();
+    else start();
+  };
+
+  // Save and Load pattern (grid and volumes) to localStorage
+  const saveBtn = document.getElementById("save");
+  const loadBtn = document.getElementById("load");
+  const clearBtn = document.getElementById("clear");
+
+  saveBtn.onclick = () => {
+    let saveData = {
+      gridData: gridData,
+      volumes: {}
+    };
+    Object.keys(instruments).forEach(inst => {
+      saveData.volumes[inst] = instruments[inst].vol;
+    });
+    localStorage.setItem('beatMakerPattern', JSON.stringify(saveData));
+    alert('Pattern saved!');
+  };
+
+  loadBtn.onclick = () => {
+    let loadData = localStorage.getItem('beatMakerPattern');
+    if(!loadData) {
+      alert('No saved pattern found!');
+      return;
+    }
+    let data = JSON.parse(loadData);
+    if(!data.gridData || !data.volumes) {
+      alert('Saved pattern is invalid!');
+      return;
+    }
+    Object.keys(data.gridData).forEach(inst => {
+      data.gridData[inst].forEach((val, i) => {
+        gridData[inst][i] = val;
+        let btn = buttonRefs[inst][i];
+        btn.dataset.level = val;
+        btn.classList.remove("level1", "level2", "level3");
+        if(val === 1) btn.classList.add("level1");
+        else if(val === 2) btn.classList.add("level2");
+        else if(val === 3) btn.classList.add("level3");
+        btn.title = `${inst.toUpperCase()} step ${i+1}, velocity: ${val === 0 ? 'off' : val}`;
+      });
+    });
+    Object.keys(data.volumes).forEach(inst => {
+      instruments[inst].vol = data.volumes[inst];
+      const volSlider = document.getElementById(`${inst}-volume`);
+      if(volSlider) volSlider.value = data.volumes[inst];
+    });
+    alert('Pattern loaded!');
+  };
+
+  clearBtn.onclick = () => {
+    Object.keys(gridData).forEach(inst => {
+      gridData[inst].fill(0);
+      buttonRefs[inst].forEach(btn => {
+        btn.dataset.level = 0;
+        btn.classList.remove("level1", "level2", "level3");
+        btn.title = `${inst.toUpperCase()} step ${parseInt(btn.dataset.step)+1}, velocity: off`;
+      });
+    });
+  };
+
 </script>
 
 </body>
