@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Analog Clock</title>
-  <link href="https://fonts.googleapis.com/css2?family=Audiowide&display=swap" rel="stylesheet">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Analog Clock with Digital Display</title>
+  <link href="https://fonts.googleapis.com/css2?family=Audiowide&display=swap" rel="stylesheet" />
   <style>
     body {
       margin: 0;
@@ -12,9 +12,11 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      background: #000000;
+      background: #000;
       font-family: 'Audiowide', cursive;
       color: #aaff00;
+      flex-direction: column;
+      gap: 20px;
     }
 
     .clock {
@@ -34,6 +36,7 @@
       transform: rotate(var(--rotation));
       font-size: 22px;
       color: #aaff00;
+      user-select: none;
     }
 
     .number span {
@@ -51,6 +54,7 @@
       transform: translateX(-50%) rotate(calc(var(--rotation) * 1deg));
       background: #aaff00;
       border-radius: 4px;
+      transition: none; /* disable CSS transitions for smooth animation */
     }
 
     .hand.hour {
@@ -79,41 +83,64 @@
       left: 50%;
       transform: translate(-50%, -50%);
     }
+
+    .digital-time {
+      font-size: 24px;
+      font-weight: bold;
+      letter-spacing: 1.2px;
+      user-select: none;
+    }
   </style>
 </head>
 <body>
-  <div class="clock">
+  <div class="clock" aria-label="Analog clock" role="img">
+    <!-- Clock numbers inserted by JS -->
     <div class="hand hour" id="hourHand"></div>
     <div class="hand minute" id="minuteHand"></div>
     <div class="hand second" id="secondHand"></div>
     <div class="center-dot"></div>
-
-    <script>
-      const clock = document.querySelector('.clock');
-      for (let i = 1; i <= 12; i++) {
-        const number = document.createElement('div');
-        number.className = 'number';
-        number.style.setProperty('--rotation', i * 30 + 'deg');
-        const span = document.createElement('span');
-        span.textContent = i;
-        number.appendChild(span);
-        clock.appendChild(number);
-      }
-
-      function setClock() {
-        const now = new Date();
-        const seconds = now.getSeconds() / 60;
-        const minutes = (seconds + now.getMinutes()) / 60;
-        const hours = (minutes + now.getHours()) / 12;
-
-        document.getElementById('secondHand').style.setProperty('--rotation', seconds * 360);
-        document.getElementById('minuteHand').style.setProperty('--rotation', minutes * 360);
-        document.getElementById('hourHand').style.setProperty('--rotation', hours * 360);
-      }
-
-      setClock();
-      setInterval(setClock, 1000);
-    </script>
   </div>
+
+  <div class="digital-time" id="digitalTime" aria-live="polite" aria-atomic="true"></div>
+
+  <script>
+    const clock = document.querySelector('.clock');
+
+    // Create clock numbers
+    for (let i = 1; i <= 12; i++) {
+      const number = document.createElement('div');
+      number.className = 'number';
+      number.style.setProperty('--rotation', `${i * 30}deg`);
+      const span = document.createElement('span');
+      span.textContent = i;
+      number.appendChild(span);
+      clock.appendChild(number);
+    }
+
+    const hourHand = document.getElementById('hourHand');
+    const minuteHand = document.getElementById('minuteHand');
+    const secondHand = document.getElementById('secondHand');
+    const digitalTime = document.getElementById('digitalTime');
+
+    function updateClock() {
+      const now = new Date();
+
+      const milliseconds = now.getMilliseconds();
+      const seconds = now.getSeconds() + milliseconds / 1000;
+      const minutes = now.getMinutes() + seconds / 60;
+      const hours = (now.getHours() % 12) + minutes / 60;
+
+      hourHand.style.setProperty('--rotation', hours * 30);
+      minuteHand.style.setProperty('--rotation', minutes * 6);
+      secondHand.style.setProperty('--rotation', seconds * 6);
+
+      // Format digital time as HH:MM:SS
+      digitalTime.textContent = now.toLocaleTimeString();
+      
+      requestAnimationFrame(updateClock);
+    }
+
+    updateClock();
+  </script>
 </body>
 </html>
