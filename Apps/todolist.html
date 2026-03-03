@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Advanced To-Do List</title>
 
   <link href="https://fonts.googleapis.com/css2?family=Audiowide&display=swap" rel="stylesheet">
@@ -18,6 +18,7 @@
       height: 100vh;
       margin: 0;
       transition: background 0.3s, color 0.3s;
+      padding: 10px;
     }
     .container {
       background: white;
@@ -25,12 +26,28 @@
       border-radius: 15px;
       width: 360px;
       box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      display: flex;
+      flex-direction: column;
+      max-height: 90vh;
     }
     input, select, button {
       padding: 8px;
       margin: 5px 0;
       width: 100%;
       font-family: 'Audiowide', sans-serif;
+      box-sizing: border-box;
+    }
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: 6px;
+      background-color: #5c6ac4;
+      color: white;
+      transition: background-color 0.3s;
+    }
+    button:hover, button:focus {
+      background-color: #4756a3;
+      outline: none;
     }
     ul {
       list-style: none;
@@ -38,12 +55,29 @@
       margin-top: 15px;
       max-height: 220px;
       overflow-y: auto;
+      border-top: 1px solid #ddd;
+      flex-grow: 1;
     }
     li {
       padding: 8px;
       border-bottom: 1px solid #ddd;
       display: flex;
       flex-direction: column;
+      cursor: pointer;
+      user-select: none;
+      background: #fff;
+      border-radius: 6px;
+      margin-bottom: 6px;
+      transition: background-color 0.3s ease;
+    }
+    li:hover:not(.done) {
+      background-color: #eef2ff;
+    }
+    li.done {
+      text-decoration: line-through;
+      opacity: 0.6;
+      background-color: #d0d0d0;
+      color: #555;
     }
     .task-row {
       display: flex;
@@ -51,64 +85,183 @@
       align-items: center;
     }
     .badge {
-      padding: 2px 6px;
-      border-radius: 6px;
+      padding: 2px 8px;
+      border-radius: 12px;
       font-size: 11px;
       margin-left: 6px;
       color: white;
+      user-select: none;
+      text-transform: capitalize;
     }
     .high { background: #e53935; }
     .medium { background: #fb8c00; }
     .low { background: #43a047; }
-    li.done {
-      text-decoration: line-through;
-      opacity: 0.6;
-    }
     .date {
       font-size: 12px;
       opacity: 0.7;
+      margin-top: 4px;
+      user-select: none;
+      font-weight: 500;
+    }
+    .buttons-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      margin: 8px 0;
+    }
+    .buttons-row button {
+      flex: 1;
+      padding: 8px;
+      font-size: 14px;
+      background-color: #1976d2;
+    }
+    .buttons-row button:hover, .buttons-row button:focus {
+      background-color: #125ea8;
+    }
+    .theme-select {
+      margin-top: 10px;
+      margin-bottom: 10px;
+    }
+    .edit-input {
+      margin-top: 5px;
+      padding: 6px;
+      font-size: 14px;
+      font-family: 'Audiowide', sans-serif;
+    }
+    .remove-btn {
+      background: transparent;
+      border: none;
+      color: red;
+      font-weight: bold;
+      font-size: 16px;
+      cursor: pointer;
+      margin-left: 12px;
+      flex-shrink: 0;
+      user-select: none;
+      transition: color 0.2s ease;
+    }
+    .remove-btn:hover, .remove-btn:focus {
+      color: darkred;
+      outline: none;
+    }
+    /* Overdue highlight */
+    li.overdue:not(.done) {
+      border-left: 5px solid #e53935;
+      background-color: #ffe6e6;
+    }
+    /* Edit buttons */
+    .edit-btn {
+      background: #2196f3;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 12px;
+      cursor: pointer;
+      margin-left: 8px;
+      user-select: none;
+      transition: background-color 0.3s ease;
+    }
+    .edit-btn:hover, .edit-btn:focus {
+      background-color: #1769aa;
+      outline: none;
+    }
+    .edit-row {
+      display: flex;
+      align-items: center;
+      margin-top: 6px;
+      gap: 4px;
+    }
+    /* Responsive */
+    @media (max-width: 400px) {
+      .container {
+        width: 100%;
+        max-height: 95vh;
+        padding: 15px;
+      }
+      ul {
+        max-height: 200px;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="container">
+  <div class="container" role="main" aria-label="To-Do List Application">
     <h2>To-Do List</h2>
 
-    <input id="taskInput" type="text" placeholder="Task" />
-    <input id="dateInput" type="date" />
+    <label for="taskInput" class="visually-hidden">Task Description</label>
+    <input id="taskInput" type="text" placeholder="Task" aria-label="Task description" />
 
-    <select id="priorityInput">
+    <label for="dateInput" class="visually-hidden">Due Date</label>
+    <input id="dateInput" type="date" aria-label="Due date" />
+
+    <label for="priorityInput" class="visually-hidden">Priority</label>
+    <select id="priorityInput" aria-label="Priority">
       <option value="low">Low Priority</option>
-      <option value="medium">Medium Priority</option>
+      <option value="medium" selected>Medium Priority</option>
       <option value="high">High Priority</option>
     </select>
 
-    <button onclick="addTask()">Add Task</button>
+    <button id="addTaskBtn" aria-label="Add new task">Add Task</button>
 
-    <button onclick="sortByDate()">Sort by Date</button>
-    <button onclick="sortByPriority()">Sort by Priority</button>
+    <div class="buttons-row">
+      <button id="sortDateBtn" aria-label="Sort tasks by due date">Sort by Date</button>
+      <button id="sortPriorityBtn" aria-label="Sort tasks by priority">Sort by Priority</button>
+    </div>
 
-    <h3>Theme</h3>
-    <select onchange="setTheme(this.value)">
-      <option value="default">Default</option>
-      <option value="blue">Blue</option>
-      <option value="green">Green</option>
-      <option value="purple">Purple</option>
-      <option value="yellow">Yellow</option>
-      <option value="black">Black</option>
-      <option value="pink">Pink</option>
-    </select>
+    <section aria-label="Theme Selector">
+      <h3>Theme</h3>
+      <select id="themeSelector" class="theme-select" aria-label="Select theme">
+        <option value="default">Default</option>
+        <option value="blue">Blue</option>
+        <option value="green">Green</option>
+        <option value="purple">Purple</option>
+        <option value="yellow">Yellow</option>
+        <option value="black">Black</option>
+        <option value="pink">Pink</option>
+      </select>
+    </section>
 
-    <ul id="taskList"></ul>
+    <input id="searchInput" type="search" placeholder="Search tasks..." aria-label="Search tasks" />
+
+    <ul id="taskList" role="list" aria-live="polite" aria-label="Task list"></ul>
   </div>
 
   <script>
     const taskList = document.getElementById('taskList');
+    const taskInput = document.getElementById('taskInput');
+    const dateInput = document.getElementById('dateInput');
+    const priorityInput = document.getElementById('priorityInput');
+    const addTaskBtn = document.getElementById('addTaskBtn');
+    const sortDateBtn = document.getElementById('sortDateBtn');
+    const sortPriorityBtn = document.getElementById('sortPriorityBtn');
+    const themeSelector = document.getElementById('themeSelector');
+    const searchInput = document.getElementById('searchInput');
 
+    // Utility - format date to readable format e.g. Jan 01, 2024
+    function formatDate(dateStr) {
+      if (!dateStr) return '';
+      const options = { year: 'numeric', month: 'short', day: 'numeric' };
+      const d = new Date(dateStr + 'T00:00:00'); // avoid timezone issues
+      if (isNaN(d)) return '';
+      return d.toLocaleDateString(undefined, options);
+    }
+
+    // Check if a task is overdue
+    function isOverdue(dateStr) {
+      if (!dateStr) return false;
+      const today = new Date();
+      today.setHours(0,0,0,0);
+      const due = new Date(dateStr + 'T23:59:59');
+      return due < today;
+    }
+
+    // Save tasks to localStorage
     function saveTasks() {
       const tasks = [];
       taskList.querySelectorAll('li').forEach(li => {
         tasks.push({
+          id: li.dataset.id,
           text: li.dataset.text,
           date: li.dataset.date,
           priority: li.dataset.priority,
@@ -118,72 +271,245 @@
       localStorage.setItem('tasks', JSON.stringify(tasks));
     }
 
+    // Load tasks from localStorage
     function loadTasks() {
       const tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
-      tasks.forEach(t => createTask(t.text, t.date, t.priority, t.done));
+      tasks.forEach(t => createTask(t.text, t.date, t.priority, t.done, t.id));
     }
 
-    function addTask() {
-      const text = document.getElementById('taskInput').value.trim();
-      const date = document.getElementById('dateInput').value;
-      const priority = document.getElementById('priorityInput').value;
-      if (!text) return;
-      createTask(text, date, priority, false);
-      saveTasks();
-      document.getElementById('taskInput').value = '';
+    // Generate unique ID for tasks
+    function generateId() {
+      return 'task-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
     }
 
-    function createTask(text, date, priority, done) {
+    // Create a task element
+    function createTask(text, date, priority, done = false, id = null) {
+      id = id || generateId();
+
+      // Avoid duplicates (for load with same IDs)
+      if(taskList.querySelector(`li[data-id="${id}"]`)) return;
+
       const li = document.createElement('li');
+      li.dataset.id = id;
       li.dataset.text = text;
       li.dataset.date = date || '';
       li.dataset.priority = priority;
 
+      if(done) li.classList.add('done');
+      if(isOverdue(date) && !done) li.classList.add('overdue');
+
+      // Task row container
       const row = document.createElement('div');
       row.className = 'task-row';
 
+      // Task text span
       const span = document.createElement('span');
       span.textContent = text;
+      span.setAttribute('tabindex', '0');
+      span.setAttribute('aria-label', `Task: ${text}, Priority: ${priority}, Due: ${formatDate(date) || 'No date'}`);
 
+      // Priority badge
       const badge = document.createElement('span');
       badge.className = 'badge ' + priority;
       badge.textContent = priority;
 
-      const removeBtn = document.createElement('button');
-      removeBtn.textContent = 'X';
-      removeBtn.onclick = e => {
+      // Buttons container
+      const btnContainer = document.createElement('div');
+      btnContainer.style.display = 'flex';
+      btnContainer.style.alignItems = 'center';
+      btnContainer.style.gap = '6px';
+
+      // Edit button
+      const editBtn = document.createElement('button');
+      editBtn.textContent = 'Edit';
+      editBtn.className = 'edit-btn';
+      editBtn.type = 'button';
+      editBtn.setAttribute('aria-label', `Edit task "${text}"`);
+      editBtn.addEventListener('click', e => {
         e.stopPropagation();
-        li.remove();
-        saveTasks();
-      };
+        showEditInputs(li);
+      });
+
+      // Remove button
+      const removeBtn = document.createElement('button');
+      removeBtn.textContent = '✕';
+      removeBtn.className = 'remove-btn';
+      removeBtn.type = 'button';
+      removeBtn.setAttribute('aria-label', `Remove task "${text}"`);
+      removeBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        if(confirm(`Are you sure you want to delete the task "${text}"?`)) {
+          li.remove();
+          saveTasks();
+        }
+      });
+
+      btnContainer.appendChild(editBtn);
+      btnContainer.appendChild(removeBtn);
 
       row.appendChild(span);
       row.appendChild(badge);
-      row.appendChild(removeBtn);
+      row.appendChild(btnContainer);
 
+      // Due date
       const dateEl = document.createElement('div');
       dateEl.className = 'date';
-      dateEl.textContent = date ? 'Due: ' + date : '';
+      dateEl.textContent = date ? 'Due: ' + formatDate(date) : '';
 
       li.appendChild(row);
       li.appendChild(dateEl);
 
-      li.addEventListener('click', () => {
+      // Toggle done on clicking (except buttons)
+      li.addEventListener('click', e => {
+        // prevent toggle if click on a button or input inside li
+        if(['BUTTON','INPUT','SELECT','TEXTAREA'].includes(e.target.tagName)) return;
+
         li.classList.toggle('done');
+        // update overdue style accordingly
+        if(li.classList.contains('done')) {
+          li.classList.remove('overdue');
+        } else if(isOverdue(li.dataset.date)) {
+          li.classList.add('overdue');
+        }
         saveTasks();
       });
 
-      if (done) li.classList.add('done');
       taskList.appendChild(li);
     }
 
+    // Show edit inputs inside the task li
+    function showEditInputs(li) {
+      if(li.querySelector('.edit-row')) return; // Already editing
+
+      const currentText = li.dataset.text;
+      const currentDate = li.dataset.date;
+      const currentPriority = li.dataset.priority;
+
+      const editRow = document.createElement('div');
+      editRow.className = 'edit-row';
+
+      const textInput = document.createElement('input');
+      textInput.type = 'text';
+      textInput.className = 'edit-input';
+      textInput.value = currentText;
+      textInput.setAttribute('aria-label', 'Edit task description');
+
+      const dateInputEdit = document.createElement('input');
+      dateInputEdit.type = 'date';
+      dateInputEdit.className = 'edit-input';
+      dateInputEdit.value = currentDate;
+      dateInputEdit.setAttribute('aria-label', 'Edit due date');
+
+      const prioritySelect = document.createElement('select');
+      prioritySelect.className = 'edit-input';
+      prioritySelect.setAttribute('aria-label', 'Edit task priority');
+      ['low','medium','high'].forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p;
+        opt.textContent = p.charAt(0).toUpperCase() + p.slice(1);
+        if(p === currentPriority) opt.selected = true;
+        prioritySelect.appendChild(opt);
+      });
+
+      // Save button
+      const saveBtn = document.createElement('button');
+      saveBtn.textContent = 'Save';
+      saveBtn.className = 'edit-btn';
+      saveBtn.type = 'button';
+      saveBtn.setAttribute('aria-label', 'Save task changes');
+      saveBtn.addEventListener('click', e => {
+        const newText = textInput.value.trim();
+        if (!newText) {
+          alert("Task description cannot be empty.");
+          textInput.focus();
+          return;
+        }
+        li.dataset.text = newText;
+        li.dataset.date = dateInputEdit.value || '';
+        li.dataset.priority = prioritySelect.value;
+
+        const span = li.querySelector('.task-row span');
+        span.textContent = newText;
+        span.setAttribute('aria-label', `Task: ${newText}, Priority: ${prioritySelect.value}, Due: ${formatDate(dateInputEdit.value) || 'No date'}`);
+
+        const badge = li.querySelector('.badge');
+        badge.className = 'badge ' + prioritySelect.value;
+        badge.textContent = prioritySelect.value;
+
+        const dateEl = li.querySelector('.date');
+        dateEl.textContent = dateInputEdit.value ? 'Due: ' + formatDate(dateInputEdit.value) : '';
+
+        // Update overdue class
+        if(!li.classList.contains('done') && isOverdue(dateInputEdit.value)) {
+          li.classList.add('overdue');
+        } else {
+          li.classList.remove('overdue');
+        }
+
+        editRow.remove();
+        saveTasks();
+      });
+
+      // Cancel button
+      const cancelBtn = document.createElement('button');
+      cancelBtn.textContent = 'Cancel';
+      cancelBtn.className = 'edit-btn';
+      cancelBtn.type = 'button';
+      cancelBtn.style.backgroundColor = '#777';
+      cancelBtn.addEventListener('click', e => {
+        editRow.remove();
+      });
+
+      editRow.appendChild(textInput);
+      editRow.appendChild(dateInputEdit);
+      editRow.appendChild(prioritySelect);
+      editRow.appendChild(saveBtn);
+      editRow.appendChild(cancelBtn);
+
+      li.appendChild(editRow);
+
+      // Focus on text input
+      textInput.focus();
+    }
+
+    // Add a new task from input fields
+    function addTask() {
+      const text = taskInput.value.trim();
+      const date = dateInput.value;
+      const priority = priorityInput.value;
+
+      if (!text) {
+        alert("Please enter a task description.");
+        taskInput.focus();
+        return;
+      }
+
+      createTask(text, date, priority, false);
+      saveTasks();
+
+      // Clear inputs, keep priority and date for convenience
+      taskInput.value = '';
+      dateInput.value = '';
+      taskInput.focus();
+      applyFilter(); // update filter to include new task
+    }
+
+    // Sort tasks by due date ascending
     function sortByDate() {
       const items = Array.from(taskList.children);
-      items.sort((a,b) => (a.dataset.date || '').localeCompare(b.dataset.date || ''));
+      items.sort((a,b) => {
+        const aDate = a.dataset.date || '';
+        const bDate = b.dataset.date || '';
+        if (!aDate && !bDate) return 0;
+        if (!aDate) return 1;
+        if (!bDate) return -1;
+        return aDate.localeCompare(bDate);
+      });
       items.forEach(i => taskList.appendChild(i));
       saveTasks();
     }
 
+    // Sort tasks by priority (high, medium, low)
     function sortByPriority() {
       const order = { high: 1, medium: 2, low: 3 };
       const items = Array.from(taskList.children);
@@ -192,6 +518,7 @@
       saveTasks();
     }
 
+    // Set theme based on selection
     function setTheme(theme) {
       const body = document.body;
       const themes = {
@@ -203,18 +530,80 @@
         black: { bg: '#111', color: '#fff' },
         pink: { bg: '#ffd6e7', color: '#880e4f' }
       };
-      body.style.background = themes[theme].bg;
-      body.style.color = themes[theme].color;
-      localStorage.setItem('theme', theme);
+      if (themes[theme]) {
+        body.style.background = themes[theme].bg;
+        body.style.color = themes[theme].color;
+        localStorage.setItem('theme', theme);
+      }
     }
 
+    // Load saved theme from localStorage
     function loadTheme() {
       const theme = localStorage.getItem('theme') || 'default';
       setTheme(theme);
+      themeSelector.value = theme;
     }
 
+    // Filter tasks to show those matching search input
+    function applyFilter() {
+      const filter = searchInput.value.trim().toLowerCase();
+      taskList.querySelectorAll('li').forEach(li => {
+        const text = li.dataset.text.toLowerCase();
+        const date = li.dataset.date;
+        const priority = li.dataset.priority.toLowerCase();
+        const dateFormatted = date ? formatDate(date).toLowerCase() : '';
+
+        if (text.includes(filter) || priority.includes(filter) || dateFormatted.includes(filter)) {
+          li.style.display = '';
+        } else {
+          li.style.display = 'none';
+        }
+      });
+    }
+
+    // Accessibility: allow adding task on Enter keypress in task input
+    taskInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        addTask();
+      }
+    });
+
+    // Accessibility: allow adding task by Enter key while inside date or priority fields
+    dateInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        addTask();
+      }
+    });
+    priorityInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        addTask();
+      }
+    });
+
+    // Event handlers for buttons and inputs
+    addTaskBtn.addEventListener('click', addTask);
+    sortDateBtn.addEventListener('click', () => {
+      sortByDate();
+      applyFilter();
+    });
+    sortPriorityBtn.addEventListener('click', () => {
+      sortByPriority();
+      applyFilter();
+    });
+    themeSelector.addEventListener('change', e => {
+      setTheme(e.target.value);
+    });
+    searchInput.addEventListener('input', applyFilter);
+
+    // Initial load
     loadTasks();
     loadTheme();
+
+    // Focus task input on page load for better UX
+    taskInput.focus();
   </script>
 </body>
 </html>
