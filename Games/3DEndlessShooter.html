@@ -257,6 +257,11 @@
       updateScoreboard();
       gameOverFlag = false;
       lastEnemySpawn = performance.now();
+
+      // Show home screen again and hide scoreboard
+      homeScreen.style.display = "flex";
+      scoreboard.style.display = "none";
+      cancelAnimationFrame(animationId); // stop animation loop after game over
     }
 
     // Limit player move area
@@ -296,6 +301,7 @@
       homeScreen.style.display = "none";
       scoreboard.style.display = "block";
       lastEnemySpawn = performance.now();
+      enemySpawnInterval = 1500;  // reset spawn interval on new game
       animate();
     });
 
