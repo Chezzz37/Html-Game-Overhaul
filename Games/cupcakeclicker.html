@@ -20,6 +20,7 @@ body{font-family:Arial;text-align:center;background:linear-gradient(#ffeef5,#ffd
 <h3 id="prestige">Prestige Multiplier: 1x</h3>
 <div id="cupcake">🧁</div>
 <button onclick="prestigeReset()">Prestige Reset</button>
+<button onclick="resetProgress()">Reset Progress</button>
 
 <h3>Upgrades</h3>
 <div id="upgrades"></div>
@@ -57,64 +58,168 @@ const statsList=document.getElementById('stats');
 const music=document.getElementById('music');
 
 function updateDisplay(){
-scoreDisplay.textContent='Cupcakes: '+Math.floor(cupcakes);
-cpsDisplay.textContent='Cupcakes/sec: '+(cps*prestige).toFixed(1);
-prestigeDisplay.textContent='Prestige Multiplier: '+prestige+'x';
-updateAchievements();
-updateStats();
+  scoreDisplay.textContent='Cupcakes: '+Math.floor(cupcakes);
+  cpsDisplay.textContent='Cupcakes/sec: '+(cps*prestige).toFixed(1);
+  prestigeDisplay.textContent='Prestige Multiplier: '+prestige+'x';
+  updateAchievements();
+  updateStats();
 }
 
 function updateStats(){
-const playtime=Math.floor((Date.now()-startTime)/1000);
-statsList.innerHTML=`
-<li>Total Clicks: ${totalClicks}</li>
-<li>Total Cupcakes Baked: ${Math.floor(totalBaked)}</li>
-<li>Playtime: ${playtime}s</li>`;
+  const playtime=Math.floor((Date.now()-startTime)/1000);
+  statsList.innerHTML=`
+  <li>Total Clicks: ${totalClicks}</li>
+  <li>Total Cupcakes Baked: ${Math.floor(totalBaked)}</li>
+  <li>Playtime: ${playtime}s</li>`;
 }
 
 function updateAchievements(){
-achievementsList.innerHTML='';
-achievements.forEach(a=>{
-if(!a.unlocked && totalBaked>=a.goal){a.unlocked=true;alert('Achievement unlocked: '+a.text)}
-const li=document.createElement('li');
-li.textContent=(a.unlocked?'✅ ':'⬜ ')+a.text;
-achievementsList.appendChild(li);
-});
+  achievementsList.innerHTML='';
+  achievements.forEach(a=>{
+    if(!a.unlocked && totalBaked>=a.goal){a.unlocked=true;alert('Achievement unlocked: '+a.text)}
+    const li=document.createElement('li');
+    li.textContent=(a.unlocked?'✅ ':'⬜ ')+a.text;
+    achievementsList.appendChild(li);
+  });
 }
 
-function floatingText(x,y,text){const el=document.createElement('div');el.className='floating';el.style.left=x+'px';el.style.top=y+'px';el.textContent=text;document.body.appendChild(el);setTimeout(()=>el.remove(),1000)}
+function floatingText(x,y,text){
+  const el=document.createElement('div');
+  el.className='floating';
+  el.style.left=x+'px';
+  el.style.top=y+'px';
+  el.textContent=text;
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(),1000);
+}
 
 function clickCupcake(e){
-const gain=clickPower*prestige;
-cupcakes+=gain;
-totalClicks++;
-totalBaked+=gain;
-if(e)floatingText(e.clientX,e.clientY,'+'+Math.floor(gain));
-updateDisplay();updateButtons();
+  const gain=clickPower*prestige;
+  cupcakes+=gain;
+  totalClicks++;
+  totalBaked+=gain;
+  if(e)floatingText(e.clientX,e.clientY,'+'+Math.floor(gain));
+  updateDisplay();updateButtons();
 }
 document.getElementById('cupcake').onclick=clickCupcake;
 
-function createUpgradeButtons(){upgradesDiv.innerHTML='';upgrades.forEach((u,i)=>{const btn=document.createElement('button');btn.className='upgrade';btn.id='upgrade'+i;btn.onclick=()=>buyUpgrade(i);upgradesDiv.appendChild(btn)});updateButtons()}
+function createUpgradeButtons(){
+  upgradesDiv.innerHTML='';
+  upgrades.forEach((u,i)=>{
+    const btn=document.createElement('button');
+    btn.className='upgrade';
+    btn.id='upgrade'+i;
+    btn.onclick=()=>buyUpgrade(i);
+    upgradesDiv.appendChild(btn);
+  });
+  updateButtons();
+}
 
-function updateButtons(){upgrades.forEach((u,i)=>{const btn=document.getElementById('upgrade'+i);btn.textContent=`Upgrade ${i+1} (Lvl ${u.level}) Cost: ${u.cost}`;btn.disabled=cupcakes<u.cost})}
+function updateButtons(){
+  upgrades.forEach((u,i)=>{
+    const btn=document.getElementById('upgrade'+i);
+    btn.textContent=`Upgrade ${i+1} (Lvl ${u.level}) Cost: ${u.cost}`;
+    btn.disabled=cupcakes<u.cost;
+  })
+}
 
-function buyUpgrade(i){const u=upgrades[i];if(cupcakes>=u.cost){cupcakes-=u.cost;u.level++;clickPower+=u.power;cps+=u.cps;u.cost=Math.floor(u.cost*1.6);updateDisplay();updateButtons();saveGame()}}
+function buyUpgrade(i){
+  const u=upgrades[i];
+  if(cupcakes>=u.cost){
+    cupcakes-=u.cost;
+    u.level++;
+    clickPower+=u.power;
+    cps+=u.cps;
+    u.cost=Math.floor(u.cost*1.6);
+    updateDisplay();
+    updateButtons();
+    saveGame();
+  }
+}
 
-function prestigeReset(){if(cupcakes<100000)return alert('Need 100k cupcakes');prestige++;cupcakes=0;clickPower=1;cps=0;upgrades.forEach((u,i)=>{u.level=0;u.cost=Math.floor(10*Math.pow(1.8,i))});updateDisplay();updateButtons()}
+function prestigeReset(){
+  if(cupcakes<100000) return alert('Need 100k cupcakes');
+  prestige++;
+  cupcakes=0;
+  clickPower=1;
+  cps=0;
+  upgrades.forEach((u,i)=>{u.level=0; u.cost=Math.floor(10*Math.pow(1.8,i))});
+  updateDisplay();
+  updateButtons();
+}
 
-setInterval(()=>{const gain=cps*prestige;cupcakes+=gain;totalBaked+=gain;updateDisplay()},1000);
+function resetProgress(){
+  if(confirm('Are you sure you want to reset all progress?')){
+    localStorage.removeItem('cupcakeSave');
+    cupcakes=0;
+    clickPower=1;
+    cps=0;
+    prestige=1;
+    totalClicks=0;
+    totalBaked=0;
+    startTime=Date.now();
+    upgrades.forEach((u,i)=>{
+      u.level=0;
+      u.cost=Math.floor(10*Math.pow(1.8,i));
+    });
+    achievements.forEach(a=>a.unlocked=false);
+    updateDisplay();
+    updateButtons();
+  }
+}
 
-function toggleMusic(){musicOn=!musicOn;if(musicOn)music.play();else music.pause()}
+setInterval(()=>{
+  const gain=cps*prestige;
+  cupcakes+=gain;
+  totalBaked+=gain;
+  updateDisplay()
+},1000);
 
-function saveGame(){lastSave=Date.now();localStorage.setItem('cupcakeSave',JSON.stringify({cupcakes,clickPower,cps,prestige,upgrades,lastSave,achievements,totalClicks,totalBaked,startTime}))}
+function toggleMusic(){
+  musicOn=!musicOn;
+  if(musicOn) music.play();
+  else music.pause();
+}
 
-function loadGame(){const save=JSON.parse(localStorage.getItem('cupcakeSave'));if(!save)return;cupcakes=save.cupcakes;clickPower=save.clickPower;cps=save.cps;prestige=save.prestige;upgrades=save.upgrades;achievements=save.achievements;totalClicks=save.totalClicks||0;totalBaked=save.totalBaked||0;startTime=save.startTime||Date.now();const offline=Math.floor((Date.now()-save.lastSave)/1000);cupcakes+=offline*cps*prestige;totalBaked+=offline*cps*prestige}
+function saveGame(){
+  lastSave=Date.now();
+  localStorage.setItem('cupcakeSave',JSON.stringify({cupcakes,clickPower,cps,prestige,upgrades,lastSave,achievements,totalClicks,totalBaked,startTime}))
+}
+
+function loadGame(){
+  const save=JSON.parse(localStorage.getItem('cupcakeSave'));
+  if(!save) return;
+  cupcakes=save.cupcakes;
+  clickPower=save.clickPower;
+  cps=save.cps;
+  prestige=save.prestige;
+  upgrades=save.upgrades;
+  achievements=save.achievements;
+  totalClicks=save.totalClicks||0;
+  totalBaked=save.totalBaked||0;
+  startTime=save.startTime||Date.now();
+  const offline=Math.floor((Date.now()-save.lastSave)/1000);
+  cupcakes+=offline*cps*prestige;
+  totalBaked+=offline*cps*prestige;
+}
 
 setInterval(saveGame,5000);
 
-let gpPressed=false;function poll(){const gp=navigator.getGamepads()[0];if(gp){const p=gp.buttons[0].pressed;if(p&&!gpPressed)clickCupcake();gpPressed=p}requestAnimationFrame(poll)}window.addEventListener('gamepadconnected',poll);
+let gpPressed=false;
+function poll(){
+  const gp=navigator.getGamepads()[0];
+  if(gp){
+    const p=gp.buttons[0].pressed;
+    if(p && !gpPressed) clickCupcake();
+    gpPressed=p;
+  }
+  requestAnimationFrame(poll);
+}
+window.addEventListener('gamepadconnected',poll);
 
-loadGame();createUpgradeButtons();updateDisplay();
+loadGame();
+createUpgradeButtons();
+updateDisplay();
 </script>
 </body>
 </html>
