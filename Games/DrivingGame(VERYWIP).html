@@ -16,7 +16,6 @@
       user-select: none;
       flex-direction: column;
       min-width: 360px;
-      overflow: hidden;
     }
     button {
       cursor: pointer;
@@ -30,12 +29,8 @@
       transition: background 0.3s ease;
       user-select:none;
     }
-    button:hover:not(:disabled) {
+    button:hover {
       background: #2048ff;
-    }
-    button:disabled {
-      background: #555;
-      cursor: default;
     }
     h1 {
       margin-bottom: 30px;
@@ -64,26 +59,9 @@
       padding: 20px 35px 25px 35px;
       box-shadow: 0 0 15px #0a3dffa8;
       position: relative;
-      box-sizing: border-box;
     }
     .screen.active {
       display: flex;
-    }
-
-    /* Loading overlay */
-    #loadingOverlay {
-      position: absolute;
-      inset: 0;
-      background: #111cddcc;
-      color: #0a3dff;
-      font-weight: 700;
-      font-size: 1.25rem;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      border-radius: 12px;
-      user-select:none;
-      z-index: 20;
     }
 
     /* Car selection */
@@ -114,7 +92,6 @@
       max-height: 300px;
       overflow-y: auto;
       margin-top: 10px;
-      position: relative;
     }
     .trackThumbnail {
       width: 120px;
@@ -126,7 +103,6 @@
       background: #222;
       box-shadow: inset 0 0 5px #000000aa;
       transition: border 0.3s ease;
-      user-select:none;
     }
     .trackThumbnail.selected {
       border: 3px solid #0a3dff;
@@ -173,59 +149,36 @@
       user-select: none;
     }
 
-    /* Controller detection bar at top */
-    #controllerStatus {
-      position: fixed;
-      top: 0; left: 0; right: 0;
-      height: 28px;
-      background: #0a3dff;
-      color: #0f0;
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-family: monospace;
-      user-select: none;
-      z-index: 11000;
-    }
-
-    /* Race track fullscreen */
+    /* Race track, wrap for horizontal scrolling */
     #raceTrackWrapper {
-      flex-grow: 1;
-      width: 100vw;
-      height: calc(100vh - 58px);
-      overflow: hidden;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      position: relative;
-      margin-top: 10px;
+      max-width: 100vw;
+      overflow-x: auto;
+      margin-top: 20px;
     }
 
     #raceTrack {
       position: relative;
-      width: 100%;
-      height: 100%;
+      width: 1600px;   
+      height: 500px;   
+      border-radius: 12px;
       overflow: visible;
-      user-select: none;
-      background: #222;
       border: 3px solid #0a3dff;
-      border-radius: 0;
+      user-select:none;
+      background: #222;
     }
     #raceCanvas {
       display: block;
-      width: 100%;
-      height: 100%;
+      width: 1600px;
+      height: 500px;
       background: #222;
-      border-radius: 0;
+      border-radius: 12px;
     }
     #carsContainer {
       position: absolute;
       top: 0; left: 0;
-      width: 100%;
-      height: 100%;
+      width: 1600px;
+      height: 500px;
       pointer-events: none;
-      overflow: visible;
     }
     .car {
       font-size: 3.8rem;
@@ -234,8 +187,6 @@
       cursor: default;
       text-shadow: 0 0 8px rgba(10,61,255,0.8);
       transition: none;
-      transform-origin: center bottom;
-      user-select:none;
     }
     .car.player {
       text-shadow: 0 0 14px #0a3dff, 0 0 16px #0a3dff;
@@ -319,10 +270,6 @@
       text-align: center;
       color: #0a3dff;
       min-height: 1.5rem;
-      white-space: pre-line;
-      max-width: 100vw;
-      word-break: break-word;
-      user-select:none;
     }
 
     #btnBackHome {
@@ -336,8 +283,6 @@
   </style>
 </head>
 <body>
-
-  <div id="controllerStatus">Controller: Not detected</div>
 
   <!-- Home Screen -->
   <section id="homeScreen" class="screen active">
@@ -357,9 +302,7 @@
   <!-- Track Select Screen -->
   <section id="trackSelect" class="screen">
     <h2>Select a Track</h2>
-    <div id="tracks" style="position:relative;">
-      <div id="loadingOverlay">Preparing track...</div>
-    </div>
+    <div id="tracks"></div>
     <button id="btnTrackNext" disabled>Next</button>
     <button id="btnTrackBack">Back</button>
   </section>
@@ -389,15 +332,15 @@
   <div id="countdownOverlay" style="display:none;">3</div>
 
   <!-- Race Screen -->
-  <section id="raceScreen" class="screen" style="width:100vw; height:calc(100vh - 58px); max-width:none; max-height:none; padding:10px 15px;">
-    <h2 style="color:#0a3dff; margin:10px 0 10px 8px; align-self:flex-start;">Race Track</h2>
+  <section id="raceScreen" class="screen">
+    <h2 style="color:#0a3dff; margin:15px 0 5px 20px; align-self:flex-start;">Race Track</h2>
     <div id="raceTrackWrapper">
-      <div id="raceTrack" aria-label="Race Track Container" role="region">
-        <canvas id="raceCanvas" aria-label="Race Track Canvas"></canvas>
+      <div id="raceTrack">
+        <canvas id="raceCanvas" width="1600" height="500" aria-label="Race Track"></canvas>
         <div id="carsContainer" aria-live="polite"></div>
       </div>
     </div>
-    <p id="raceInstructions" style="margin-top: 12px; color:#ccc; font-style: italic; text-align:center; max-width: 100vw; user-select:none;">
+    <p id="raceInstructions" style="margin-top: 12px; color:#ccc; font-style: italic; max-width: 1600px; text-align:center;">
       Use Left/Right arrow keys or A/D to steer your car 🚓.<br>Up arrow or W to accelerate, release to brake automatically.<br>
       Reach the finish line after laps to win!
     </p>
@@ -425,752 +368,634 @@
   </div>
 
 <script>
-  const cars = [
-    { emoji: "🚒", type: "Fire Truck", stats: { spd: 4.1, acc: 3.5, wgt: 4.5, hnd: 3.8, force: 4.1 } },
-    { emoji: "🚓", type: "Police Car", stats: { spd: 4.3, acc: 4.5, wgt: 3.2, hnd: 4.3, force: 4.3 } },
-    { emoji: "🚑", type: "Ambulance", stats: { spd: 4.4, acc: 4.2, wgt: 3.8, hnd: 4.4, force: 4.2 } },
-    { emoji: "🏎️", type: "Race Car", stats: { spd: 5, acc: 4.8, wgt: 2.5, hnd: 3.2, force: 2.5 } },
-    { emoji: "🚗", type: "Sedan", stats: { spd: 3, acc: 3.5, wgt: 3.5, hnd: 3.8, force: 3.8 } },
-    { emoji: "🚙", type: "SUV", stats: { spd: 3.2, acc: 3, wgt: 4, hnd: 3, force: 3.2 } },
-    { emoji: "🚛", type: "Truck", stats: { spd: 2.5, acc: 2, wgt: 4.7, hnd: 2.2, force: 3 } },
-    { emoji: "🛻", type: "Pickup Truck", stats: { spd: 2.8, acc: 2.5, wgt: 4.0, hnd: 2.5, force: 3 } },
-    { emoji: "🚕", type: "Taxi", stats: { spd: 3.2, acc: 3.3, wgt: 3.3, hnd: 3.5, force: 3.5 } },
-    { emoji: "🏍️", type: "Motorcycle", stats: { spd: 4.7, acc: 4.8, wgt: 2, hnd: 2.5, force: 2 } },
-    { emoji: "🚜", type: "Tractor", stats: { spd: 1.5, acc: 1.2, wgt: 5, hnd: 1.2, force: 1.8 } },
-  ];
+ const cars = [
+  { emoji: "🚒", type: "Fire Truck", stats: { spd: 4.1, acc: 3.5, wgt: 4.5, hnd: 3.8, force: 4.1 } },
+  { emoji: "🚓", type: "Police Car", stats: { spd: 4.3, acc: 4.5, wgt: 3.2, hnd: 4.3, force: 4.3 } },
+  { emoji: "🚑", type: "Ambulance", stats: { spd: 4.4, acc: 4.2, wgt: 3.8, hnd: 4.4, force: 4.2 } },
+  { emoji: "🏎️", type: "Race Car", stats: { spd: 5, acc: 4.8, wgt: 2.5, hnd: 3.2, force: 2.5 } },
+  { emoji: "🚗", type: "Sedan", stats: { spd: 3, acc: 3.5, wgt: 3.5, hnd: 3.8, force: 3.8 } },
+  { emoji: "🚙", type: "SUV", stats: { spd: 3.2, acc: 3, wgt: 4, hnd: 3, force: 3.2 } },
+  { emoji: "🚛", type: "Truck", stats: { spd: 2.5, acc: 2, wgt: 4.7, hnd: 2.2, force: 3 } },
+  { emoji: "🛻", type: "Pickup Truck", stats: { spd: 2.8, acc: 2.5, wgt: 4.0, hnd: 2.5, force: 3 } },
+  { emoji: "🚕", type: "Taxi", stats: { spd: 3.2, acc: 3.3, wgt: 3.3, hnd: 3.5, force: 3.5 } },
+  { emoji: "🏍️", type: "Motorcycle", stats: { spd: 4.7, acc: 4.8, wgt: 2, hnd: 2.5, force: 2 } },
+  { emoji: "🚜", type: "Tractor", stats: { spd: 1.5, acc: 1.2, wgt: 5, hnd: 1.2, force: 1.8 } },
+];
 
-  const AI_CAR_NAMES = {};
+const AI_CAR_NAMES = {};
 
-  const screens = {
-    home: document.getElementById("homeScreen"),
-    car: document.getElementById("carSelect"),
-    track: document.getElementById("trackSelect"),
-    options: document.getElementById("finalOptions"),
-    race: document.getElementById("raceScreen"),
+const screens = {
+  home: document.getElementById("homeScreen"),
+  car: document.getElementById("carSelect"),
+  track: document.getElementById("trackSelect"),
+  options: document.getElementById("finalOptions"),
+  race: document.getElementById("raceScreen"),
+};
+
+const btnToCarSelect = document.getElementById("btnToCarSelect");
+const btnCarNext = document.getElementById("btnCarNext");
+const btnCarBack = document.getElementById("btnCarBack");
+const btnTrackNext = document.getElementById("btnTrackNext");
+const btnTrackBack = document.getElementById("btnTrackBack");
+const btnOptionsBack = document.getElementById("btnOptionsBack");
+const btnRaceStart = document.getElementById("btnRaceStart");
+const btnBackHome = document.getElementById("btnBackHome");
+const countdownOverlay = document.getElementById("countdownOverlay");
+const btnShowControls = document.getElementById("btnShowControls");
+const controlsModalBg = document.getElementById("controlsModalBg");
+const btnCloseControls = document.getElementById("btnCloseControls");
+
+const carButtonsContainer = document.getElementById("carButtons");
+const tracksDiv = document.getElementById("tracks");
+const statsContainer = document.getElementById("statsContainer");
+const carsContainer = document.getElementById("carsContainer");
+const raceStatus = document.getElementById("raceStatus");
+
+const lapsInput = document.getElementById("laps");
+const aiDifficultySelect = document.getElementById("aiDifficulty");
+
+const raceCanvas = document.getElementById("raceCanvas");
+const ctx = raceCanvas.getContext("2d");
+
+let selectedCarIndex = null;
+let selectedTrackIndex = null;
+let lapsTotal = 3;
+let currentLap = 1;
+let raceInterval = null;
+
+let raceState = [];
+
+// Updated track and container sizes for bigger track
+const TRACK_WIDTH = 3200;
+const TRACK_HEIGHT = 1000;
+const TRACK_MARGIN = 40; // Increased margin for larger track
+const CAR_COUNT = cars.length;
+
+let trackLengthPx = 0;
+
+const keys = { left: false, right: false, accelerate: false };
+
+// Generate track shapes with adjustments for larger track
+function generateRandomTrackShape(width = TRACK_WIDTH, height = TRACK_HEIGHT) {
+  let pointsCount = 12 + Math.floor(Math.random() * 6);
+  let points = [];
+  let baseRadiusX = width / 2 - TRACK_MARGIN;
+  let baseRadiusY = height / 2 - TRACK_MARGIN;
+
+  for (let i = 0; i < pointsCount; i++) {
+    let angle = (i / pointsCount) * 2 * Math.PI;
+    let radiusX = baseRadiusX * (0.75 + Math.random() * 0.25);
+    let radiusY = baseRadiusY * (0.75 + Math.random() * 0.25);
+    points.push({ angle, radiusX, radiusY });
+  }
+  return points;
+}
+
+const trackShapes = [];
+function generateTracks(num = 10) {
+  trackShapes.length = 0;
+  tracksDiv.innerHTML = "";
+  for (let i = 0; i < num; i++) {
+    const shapePoints = generateRandomTrackShape();
+    trackShapes.push(shapePoints);
+
+    const div = document.createElement("div");
+    div.className = "trackThumbnail";
+    div.title = `Track ${i + 1}`;
+    div.dataset.index = i;
+
+    const thumbCanv = document.createElement("canvas");
+    thumbCanv.width = 120;
+    thumbCanv.height = 80;
+    const thumbCtx = thumbCanv.getContext("2d");
+
+    thumbCtx.fillStyle = "#111";
+    thumbCtx.fillRect(0, 0, thumbCanv.width, thumbCanv.height);
+    thumbCtx.strokeStyle = "#0a3dff";
+    thumbCtx.lineWidth = 3;
+    thumbCtx.beginPath();
+    for (let j = 0; j < shapePoints.length; j++) {
+      let p = shapePoints[j];
+      let x = thumbCanv.width / 2 + (p.radiusX / TRACK_WIDTH) * thumbCanv.width * Math.cos(p.angle);
+      let y = thumbCanv.height / 2 + (p.radiusY / TRACK_HEIGHT) * thumbCanv.height * Math.sin(p.angle);
+      if (j === 0) thumbCtx.moveTo(x, y);
+      else thumbCtx.lineTo(x, y);
+    }
+    thumbCtx.closePath();
+    thumbCtx.stroke();
+
+    div.appendChild(thumbCanv);
+    div.onclick = () => {
+      document.querySelectorAll(".trackThumbnail").forEach((t) => t.classList.remove("selected"));
+      div.classList.add("selected");
+      selectedTrackIndex = i;
+      btnTrackNext.disabled = false;
+    };
+    tracksDiv.appendChild(div);
+  }
+}
+function createCarButtons() {
+  cars.forEach((car, i) => {
+    const btn = document.createElement("button");
+    btn.classList.add("car-btn");
+    btn.innerHTML = car.emoji;
+    btn.title = car.type;
+    btn.dataset.index = i;
+    btn.onclick = () => {
+      document.querySelectorAll("#carSelect .car-btn").forEach((b) => b.classList.remove("selected"));
+      btn.classList.add("selected");
+      selectedCarIndex = i;
+      btnCarNext.disabled = false;
+    };
+    carButtonsContainer.appendChild(btn);
+  });
+}
+function renderSelectedCarStats() {
+  statsContainer.innerHTML = "";
+  if (selectedCarIndex === null) return;
+  const car = cars[selectedCarIndex];
+
+  const title = document.createElement("h3");
+  title.textContent = `Your Car: ${car.emoji} ${car.type}`;
+  title.style.textAlign = "center";
+  title.style.marginBottom = "10px";
+  statsContainer.appendChild(title);
+
+  for (const stat of ["spd", "acc", "wgt", "hnd", "force"]) {
+    const container = document.createElement("div");
+    container.classList.add("statRow");
+
+    const statName = document.createElement("div");
+    statName.classList.add("statName");
+    statName.textContent = stat.toUpperCase();
+
+    const valueText = document.createElement("div");
+    valueText.textContent = car.stats[stat].toFixed(1);
+
+    const barContainer = document.createElement("div");
+    barContainer.classList.add("statBar");
+
+    const barFill = document.createElement("div");
+    barFill.classList.add("statFill");
+    barFill.style.width = (car.stats[stat] / 5) * 100 + "%";
+
+    barContainer.appendChild(barFill);
+    container.appendChild(statName);
+    container.appendChild(barContainer);
+    container.appendChild(valueText);
+    statsContainer.appendChild(container);
+  }
+}
+function showScreen(name) {
+  for (let scr in screens) {
+    screens[scr].classList.remove("active");
+  }
+  screens[name].classList.add("active");
+}
+
+let difficultyMultiplier = 1;
+function assignAINames() {
+  let aiIndex = 1;
+  for (let i = 0; i < CAR_COUNT; i++) {
+    if (i !== selectedCarIndex) {
+      AI_CAR_NAMES[i] = `${cars[i].type} AI #${aiIndex}`;
+      aiIndex++;
+    }
+  }
+}
+
+function initRace() {
+  raceState = [];
+  carsContainer.innerHTML = "";
+  currentLap = 1;
+  lapsTotal = parseInt(lapsInput.value);
+
+  const difficulty = aiDifficultySelect.value;
+  switch (difficulty) {
+    case "easy":
+      difficultyMultiplier = 0.7;
+      break;
+    case "medium":
+      difficultyMultiplier = 1;
+      break;
+    case "hard":
+      difficultyMultiplier = 1.25;
+      break;
+    case "veryhard":
+      difficultyMultiplier = 1.5;
+      break;
+    default:
+      difficultyMultiplier = 1;
+      break;
+  }
+
+  assignAINames();
+
+  const points = trackShapes[selectedTrackIndex];
+  trackLengthPx = 0;
+  for (let i = 0; i < points.length; i++) {
+    let p1 = points[i];
+    let p2 = points[(i + 1) % points.length];
+    let x1 = TRACK_WIDTH / 2 + p1.radiusX * Math.cos(p1.angle);
+    let y1 = TRACK_HEIGHT / 2 + p1.radiusY * Math.sin(p1.angle);
+    let x2 = TRACK_WIDTH / 2 + p2.radiusX * Math.cos(p2.angle);
+    let y2 = TRACK_HEIGHT / 2 + p2.radiusY * Math.sin(p2.angle);
+    trackLengthPx += Math.hypot(x2 - x1, y2 - y1);
+  }
+
+  for (let i = 0; i < CAR_COUNT; i++) {
+    raceState.push({
+      t: 0,
+      lateralOffset: i === selectedCarIndex ? 0 : (i % 2 === 0 ? 20 : -20) * (Math.floor(i / 2) + 1),
+      speed: 0,
+      lap: 1,
+      finished: false,
+      finishTime: null,
+      aiState: {
+        targetSpeed: 0,
+        steerTarget: 0,
+      },
+      startTime: null,
+    });
+
+    const carEl = document.createElement("div");
+    carEl.className = "car";
+    if (i === selectedCarIndex) carEl.classList.add("player");
+    carEl.id = "car" + i;
+    let aiName = i === selectedCarIndex ? "" : " (" + AI_CAR_NAMES[i] + ")";
+    carEl.textContent = cars[i].emoji;
+    carEl.setAttribute("aria-label", cars[i].type + aiName);
+    carsContainer.appendChild(carEl);
+  }
+
+  raceStatus.textContent = `Lap: 1 / ${lapsTotal}`;
+
+  drawTrackShapeOnCanvas(points);
+}
+
+window.addEventListener("keydown", (e) => {
+  if (!screens.race.classList.contains("active")) return;
+  if (e.repeat) return;
+  switch (e.key) {
+    case "ArrowLeft":
+    case "a":
+    case "A":
+      keys.left = true;
+      break;
+    case "ArrowRight":
+    case "d":
+    case "D":
+      keys.right = true;
+      break;
+    case "ArrowUp":
+    case "w":
+    case "W":
+      keys.accelerate = true;
+      break;
+  }
+});
+window.addEventListener("keyup", (e) => {
+  if (!screens.race.classList.contains("active")) return;
+  switch (e.key) {
+    case "ArrowLeft":
+    case "a":
+    case "A":
+      keys.left = false;
+      break;
+    case "ArrowRight":
+    case "d":
+    case "D":
+      keys.right = false;
+      break;
+    case "ArrowUp":
+    case "w":
+    case "W":
+      keys.accelerate = false;
+      break;
+  }
+});
+
+function raceStep() {
+  if (raceState.every((c) => c.finished)) {
+    clearInterval(raceInterval);
+    showPodium();
+    return;
+  }
+
+  const points = trackShapes[selectedTrackIndex];
+
+  raceState.forEach((carState, i) => {
+    if (carState.finished) return;
+
+    const car = cars[i];
+    const stat = car.stats;
+    const maxSpeed = stat.spd * 22;
+    const maxAcc = (stat.acc / 5) * 1.5;
+    const handl = stat.hnd / 5;
+    const brakeForce = stat.force / 5;
+
+    if (i === selectedCarIndex) {
+      if (keys.accelerate) {
+        carState.speed += maxAcc;
+        if (carState.speed > maxSpeed) carState.speed = maxSpeed;
+      } else {
+        carState.speed -= brakeForce * 0.5;
+        if (carState.speed < 0) carState.speed = 0;
+      }
+      let steerChange = 0;
+      if (keys.left) steerChange -= 1.5 * (1 / handl);
+      if (keys.right) steerChange += 1.5 * (1 / handl);
+      carState.lateralOffset += steerChange;
+      if (carState.lateralOffset > 60) {
+        carState.lateralOffset = 60;
+        carState.speed *= brakeForce;
+        raceStatus.textContent = "⚠️ You hit the wall and slowed down!";
+      } else if (carState.lateralOffset < -60) {
+        carState.lateralOffset = -60;
+        carState.speed *= brakeForce;
+        raceStatus.textContent = "⚠️ You hit the wall and slowed down!";
+      } else {
+        raceStatus.textContent = `Lap: ${currentLap} / ${lapsTotal}`;
+      }
+    } else {
+      const ai = carState.aiState;
+      let baseTarget =
+        (0.7 + 0.3 * Math.random()) *
+        maxSpeed *
+        difficultyMultiplier *
+        (0.8 + ((lapsTotal - currentLap) / lapsTotal) * 0.4);
+
+      if (!ai.targetSpeed || Math.abs(ai.targetSpeed - carState.speed) < 1) {
+        ai.targetSpeed = baseTarget;
+      }
+      if (carState.speed < ai.targetSpeed) {
+        carState.speed += maxAcc * 0.95;
+        if (carState.speed > ai.targetSpeed) carState.speed = ai.targetSpeed;
+      } else if (carState.speed > ai.targetSpeed) {
+        carState.speed -= brakeForce * 0.25;
+        if (carState.speed < ai.targetSpeed) carState.speed = ai.targetSpeed;
+      }
+
+      if (!ai.steerTarget || Math.abs(ai.steerTarget - carState.lateralOffset) < 2) {
+        let steerRange = 50 * (1.2 - handl);
+        ai.steerTarget = (Math.random() - 0.5) * steerRange;
+      }
+      let deltaLat = ai.steerTarget - carState.lateralOffset;
+      carState.lateralOffset += deltaLat * 0.06 * handl;
+
+      if (carState.lateralOffset > 60) {
+        carState.lateralOffset = 60;
+        carState.speed *= brakeForce * 0.9;
+      } else if (carState.lateralOffset < -60) {
+        carState.lateralOffset = -60;
+        carState.speed *= brakeForce * 0.9;
+      }
+    }
+
+    let distanceTravel = carState.speed;
+    let distNorm = distanceTravel / trackLengthPx;
+
+    carState.t += distNorm;
+    if (carState.t > 1) {
+      carState.t -= 1;
+      carState.lap++;
+      if (carState.lap > lapsTotal) {
+        carState.finished = true;
+        carState.finishTime = performance.now();
+      }
+      if (i === selectedCarIndex) currentLap = carState.lap;
+    }
+  });
+
+  ctx.clearRect(0, 0, TRACK_WIDTH, TRACK_HEIGHT);
+  drawTrackShapeOnCanvas(trackShapes[selectedTrackIndex]);
+
+  raceState.forEach((carState, i) => {
+    const pos = getTrackPos(trackShapes[selectedTrackIndex], carState.t);
+    let perpAngle = pos.tangent + Math.PI / 2;
+
+    let carX = pos.x + carState.lateralOffset * Math.cos(perpAngle);
+    let carY = pos.y + carState.lateralOffset * Math.sin(perpAngle);
+
+    const cEl = document.getElementById("car" + i);
+    cEl.style.left = carX - 30 + "px";
+    cEl.style.top = carY - 38 + "px";
+
+    let lean = (carState.lateralOffset / 60) * 15;
+    let deg = (pos.tangent * 180) / Math.PI;
+    cEl.style.transform = `rotate(${deg + lean}deg)`;
+    cEl.style.opacity = carState.finished ? "0.6" : "1";
+    cEl.title = i === selectedCarIndex ? `${cars[i].type} (Player)` : AI_CAR_NAMES[i];
+  });
+}
+
+// Show podium with all finishers sorted by finishTime with name and time differences
+function showPodium() {
+  let finishedCars = raceState
+    .map((carState, i) => ({ ...carState, index: i }))
+    .filter((c) => c.finished && c.finishTime !== null)
+    .sort((a, b) => a.finishTime - b.finishTime);
+
+  let podiumText = "🏆 Race Results 🏆\n";
+  let winnerTime = finishedCars.length ? finishedCars[0].finishTime : 0;
+  finishedCars.forEach((c, i) => {
+    let seconds = ((c.finishTime - winnerTime) / 1000).toFixed(2);
+    const car = cars[c.index];
+    const aiName = c.index === selectedCarIndex ? "(You)" : `(${AI_CAR_NAMES[c.index]})`;
+    podiumText += `${i + 1}. ${car.emoji} ${car.type} ${aiName} - +${seconds}s\n`;
+  });
+
+  // Show podium text in raceStatus with line breaks
+  raceStatus.style.whiteSpace = "pre-line";
+  raceStatus.textContent = podiumText;
+}
+
+function drawTrackShapeOnCanvas(points) {
+  ctx.clearRect(0, 0, TRACK_WIDTH, TRACK_HEIGHT);
+  ctx.fillStyle = "#222";
+  ctx.fillRect(0, 0, TRACK_WIDTH, TRACK_HEIGHT);
+
+  ctx.strokeStyle = "#0a3dff";
+  ctx.lineWidth = 8;
+  ctx.shadowColor = "#0a3dffbb";
+  ctx.shadowBlur = 20;
+  ctx.beginPath();
+  for (let i = 0; i < points.length; i++) {
+    let p = points[i];
+    let x = TRACK_WIDTH / 2 + p.radiusX * Math.cos(p.angle);
+    let y = TRACK_HEIGHT / 2 + p.radiusY * Math.sin(p.angle);
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  ctx.stroke();
+
+  let finishAngle = 0;
+  let rX = TRACK_WIDTH / 2 - TRACK_MARGIN;
+  let rY = TRACK_HEIGHT / 2 - TRACK_MARGIN;
+  let fx1 = TRACK_WIDTH / 2 + rX * Math.cos(finishAngle);
+  let fy1 = TRACK_HEIGHT / 2 + rY * Math.sin(finishAngle);
+  let fx2 = TRACK_WIDTH / 2 + (rX - 30) * Math.cos(finishAngle);
+  let fy2 = TRACK_HEIGHT / 2 + (rY - 80) * Math.sin(finishAngle);
+  ctx.strokeStyle = "#0a3dff";
+  ctx.lineWidth = 14;
+  ctx.beginPath();
+  ctx.moveTo(fx1, fy1 - 25);
+  ctx.lineTo(fx2, fy2 - 25);
+  ctx.moveTo(fx1, fy1 + 25);
+  ctx.lineTo(fx2, fy2 + 25);
+  ctx.stroke();
+}
+
+function getTrackPos(points, t) {
+  let segLengths = [];
+  let totalLength = 0;
+  for (let i = 0; i < points.length; i++) {
+    let p1 = points[i];
+    let p2 = points[(i + 1) % points.length];
+    let x1 = TRACK_WIDTH / 2 + p1.radiusX * Math.cos(p1.angle);
+    let y1 = TRACK_HEIGHT / 2 + p1.radiusY * Math.sin(p1.angle);
+    let x2 = TRACK_WIDTH / 2 + p2.radiusX * Math.cos(p2.angle);
+    let y2 = TRACK_HEIGHT / 2 + p2.radiusY * Math.sin(p2.angle);
+    let dist = Math.hypot(x2 - x1, y2 - y1);
+    segLengths.push(dist);
+    totalLength += dist;
+  }
+
+  let targetDist = t * totalLength;
+  let distSum = 0;
+  for (let i = 0; i < points.length; i++) {
+    if (distSum + segLengths[i] >= targetDist) {
+      let over = targetDist - distSum;
+      let ratio = over / segLengths[i];
+      let p1 = points[i];
+      let p2 = points[(i + 1) % points.length];
+      let x1 = TRACK_WIDTH / 2 + p1.radiusX * Math.cos(p1.angle);
+      let y1 = TRACK_HEIGHT / 2 + p1.radiusY * Math.sin(p1.angle);
+      let x2 = TRACK_WIDTH / 2 + p2.radiusX * Math.cos(p2.angle);
+      let y2 = TRACK_HEIGHT / 2 + p2.radiusY * Math.sin(p2.angle);
+      let x = x1 + (x2 - x1) * ratio;
+      let y = y1 + (y2 - y1) * ratio;
+      let tangent = Math.atan2(y2 - y1, x2 - x1);
+      return { x, y, tangent };
+    }
+    distSum += segLengths[i];
+  }
+  let p = points[0];
+  return {
+    x: TRACK_WIDTH / 2 + p.radiusX * Math.cos(p.angle),
+    y: TRACK_HEIGHT / 2 + p.radiusY * Math.sin(p.angle),
+    tangent: 0,
+  };
+}
+
+function resetGameState() {
+  selectedCarIndex = null;
+  selectedTrackIndex = null;
+  btnCarNext.disabled = true;
+  btnTrackNext.disabled = true;
+  document.querySelectorAll("#carSelect .car-btn").forEach((b) => b.classList.remove("selected"));
+  document.querySelectorAll("#trackSelect .trackThumbnail").forEach((t) => t.classList.remove("selected"));
+  statsContainer.innerHTML = "";
+  carsContainer.innerHTML = "";
+  raceStatus.textContent = "";
+  raceStatus.style.whiteSpace = "normal";
+}
+
+// Adjust container sizes to fit big track
+const raceTrack = document.getElementById("raceTrack");
+const carsContainerEl = document.getElementById("carsContainer");
+raceTrack.style.width = TRACK_WIDTH + "px";
+raceTrack.style.height = TRACK_HEIGHT + "px";
+
+raceCanvas.width = TRACK_WIDTH;
+raceCanvas.height = TRACK_HEIGHT;
+
+carsContainerEl.style.width = TRACK_WIDTH + "px";
+carsContainerEl.style.height = TRACK_HEIGHT + "px";
+
+function startCountdown(onFinish) {
+  countdownOverlay.style.display = "flex";
+  let count = 3;
+  countdownOverlay.textContent = count;
+  const interval = setInterval(() => {
+    count--;
+    if (count > 0) {
+      countdownOverlay.textContent = count;
+    } else if (count === 0) {
+      countdownOverlay.textContent = "GO!";
+    } else {
+      countdownOverlay.style.display = "none";
+      clearInterval(interval);
+      onFinish();
+    }
+  }, 1000);
+}
+
+function startRace() {
+  initRace();
+  if (raceInterval) clearInterval(raceInterval);
+  raceInterval = setInterval(raceStep, 1000 / 60);
+}
+
+function init() {
+  createCarButtons();
+  generateTracks();
+  renderSelectedCarStats();
+
+  btnToCarSelect.onclick = () => {
+    showScreen("car");
+  };
+  btnCarBack.onclick = () => {
+    showScreen("home");
+  };
+  btnCarNext.onclick = () => {
+    if (selectedCarIndex !== null) showScreen("track");
+  };
+  btnTrackBack.onclick = () => {
+    showScreen("car");
+  };
+  btnTrackNext.onclick = () => {
+    if (selectedTrackIndex !== null) {
+      renderSelectedCarStats();
+      showScreen("options");
+    }
+  };
+  btnOptionsBack.onclick = () => {
+    showScreen("track");
   };
 
-  const btnToCarSelect = document.getElementById("btnToCarSelect");
-  const btnCarNext = document.getElementById("btnCarNext");
-  const btnCarBack = document.getElementById("btnCarBack");
-  const btnTrackNext = document.getElementById("btnTrackNext");
-  const btnTrackBack = document.getElementById("btnTrackBack");
-  const btnOptionsBack = document.getElementById("btnOptionsBack");
-  const btnRaceStart = document.getElementById("btnRaceStart");
-  const btnBackHome = document.getElementById("btnBackHome");
-  const countdownOverlay = document.getElementById("countdownOverlay");
-  const btnShowControls = document.getElementById("btnShowControls");
-  const controlsModalBg = document.getElementById("controlsModalBg");
-  const btnCloseControls = document.getElementById("btnCloseControls");
-  const controllerStatus = document.getElementById("controllerStatus");
-
-  const loadingOverlay = document.getElementById("loadingOverlay");
-  const carButtonsContainer = document.getElementById("carButtons");
-  const tracksDiv = document.getElementById("tracks");
-  const statsContainer = document.getElementById("statsContainer");
-  const carsContainer = document.getElementById("carsContainer");
-  const raceStatus = document.getElementById("raceStatus");
-
-  const lapsInput = document.getElementById("laps");
-  const aiDifficultySelect = document.getElementById("aiDifficulty");
-
-  const raceCanvas = document.getElementById("raceCanvas");
-  const ctx = raceCanvas.getContext("2d");
-
-  let selectedCarIndex = null;
-  let selectedTrackIndex = null;
-  let lapsTotal = 3;
-  let currentLap = 1;
-  let raceInterval = null;
-
-  let raceState = [];
-
-  // Track dimensions in canvas pixels (canvas will be fullscreen)
-  const TRACK_MARGIN = 80; // margin from edges for track shape
-  let TRACK_WIDTH = 0;
-  let TRACK_HEIGHT = 0;
-
-  const CAR_COUNT = cars.length;
-  let trackLengthPx = 0;
-
-  const keys = { left: false, right: false, accelerate: false };
-
-  // Generate track shapes with margin relative to trackWidth/Height
-  function generateRandomTrackShape(width, height) {
-    let pointsCount = 12 + Math.floor(Math.random() * 6);
-    let points = [];
-    let baseRadiusX = width / 2 - TRACK_MARGIN;
-    let baseRadiusY = height / 2 - TRACK_MARGIN;
-
-    for (let i = 0; i < pointsCount; i++) {
-      let angle = (i / pointsCount) * 2 * Math.PI;
-      let radiusX = baseRadiusX * (0.75 + Math.random() * 0.25);
-      let radiusY = baseRadiusY * (0.75 + Math.random() * 0.25);
-      points.push({ angle, radiusX, radiusY });
-    }
-    return points;
-  }
-
-  const trackShapes = [];
-  let thumbnailsLoaded = 0;
-
-  // Async simulate thumbnail generation delay
-  function generateTracks(num = 10) {
-    trackShapes.length = 0;
-    tracksDiv.innerHTML = "";
-    thumbnailsLoaded = 0;
-    btnTrackNext.disabled = true;
-    loadingOverlay.style.display = "flex";
-
-    return new Promise((resolve) => {
-      for (let i = 0; i < num; i++) {
-        // Prepare points data
-        const shapePoints = generateRandomTrackShape(TRACK_WIDTH, TRACK_HEIGHT);
-        trackShapes.push(shapePoints);
-
-        const div = document.createElement("div");
-        div.className = "trackThumbnail";
-        div.title = `Track ${i + 1}`;
-        div.dataset.index = i;
-
-        const thumbCanv = document.createElement("canvas");
-        thumbCanv.width = 120;
-        thumbCanv.height = 80;
-        const thumbCtx = thumbCanv.getContext("2d");
-
-        // Staggered timeout to simulate loading effect
-        setTimeout(() => {
-          thumbCtx.fillStyle = "#111";
-          thumbCtx.fillRect(0, 0, thumbCanv.width, thumbCanv.height);
-          thumbCtx.strokeStyle = "#0a3dff";
-          thumbCtx.lineWidth = 3;
-          thumbCtx.beginPath();
-          for (let j = 0; j < shapePoints.length; j++) {
-            let p = shapePoints[j];
-            let x = thumbCanv.width / 2 + (p.radiusX / TRACK_WIDTH) * thumbCanv.width * Math.cos(p.angle);
-            let y = thumbCanv.height / 2 + (p.radiusY / TRACK_HEIGHT) * thumbCanv.height * Math.sin(p.angle);
-            if (j === 0) thumbCtx.moveTo(x, y);
-            else thumbCtx.lineTo(x, y);
-          }
-          thumbCtx.closePath();
-          thumbCtx.stroke();
-          div.appendChild(thumbCanv);
-
-          div.onclick = () => {
-            if (loadingOverlay.style.display === "flex") return;
-            document.querySelectorAll(".trackThumbnail").forEach((t) => t.classList.remove("selected"));
-            div.classList.add("selected");
-            selectedTrackIndex = i;
-            btnTrackNext.disabled = false;
-          };
-          tracksDiv.appendChild(div);
-
-          thumbnailsLoaded++;
-          if (thumbnailsLoaded === num) {
-            loadingOverlay.style.display = "none";
-            btnTrackNext.disabled = selectedTrackIndex === null;
-            resolve();
-          }
-        }, 150 * i);
-      }
-    });
-  }
-
-  function createCarButtons() {
-    cars.forEach((car, i) => {
-      const btn = document.createElement("button");
-      btn.classList.add("car-btn");
-      btn.innerHTML = car.emoji;
-      btn.title = car.type;
-      btn.dataset.index = i;
-      btn.onclick = () => {
-        document.querySelectorAll("#carSelect .car-btn").forEach((b) => b.classList.remove("selected"));
-        btn.classList.add("selected");
-        selectedCarIndex = i;
-        btnCarNext.disabled = false;
-      };
-      carButtonsContainer.appendChild(btn);
-    });
-  }
-  function renderSelectedCarStats() {
-    statsContainer.innerHTML = "";
-    if (selectedCarIndex === null) return;
-    const car = cars[selectedCarIndex];
-
-    const title = document.createElement("h3");
-    title.textContent = `Your Car: ${car.emoji} ${car.type}`;
-    title.style.textAlign = "center";
-    title.style.marginBottom = "10px";
-    statsContainer.appendChild(title);
-
-    for (const stat of ["spd", "acc", "wgt", "hnd", "force"]) {
-      const container = document.createElement("div");
-      container.classList.add("statRow");
-
-      const statName = document.createElement("div");
-      statName.classList.add("statName");
-      statName.textContent = stat.toUpperCase();
-
-      const valueText = document.createElement("div");
-      valueText.textContent = car.stats[stat].toFixed(1);
-
-      const barContainer = document.createElement("div");
-      barContainer.classList.add("statBar");
-
-      const barFill = document.createElement("div");
-      barFill.classList.add("statFill");
-      barFill.style.width = (car.stats[stat] / 5) * 100 + "%";
-
-      barContainer.appendChild(barFill);
-      container.appendChild(statName);
-      container.appendChild(barContainer);
-      container.appendChild(valueText);
-      statsContainer.appendChild(container);
-    }
-  }
-  function showScreen(name) {
-    for (let scr in screens) {
-      screens[scr].classList.remove("active");
-    }
-    screens[name].classList.add("active");
-  }
-
-  let difficultyMultiplier = 1;
-  function assignAINames() {
-    let aiIndex = 1;
-    for (let i = 0; i < CAR_COUNT; i++) {
-      if (i !== selectedCarIndex) {
-        AI_CAR_NAMES[i] = `${cars[i].type} AI #${aiIndex}`;
-        aiIndex++;
-      }
-    }
-  }
-
-  function initRace() {
-    raceState = [];
-    carsContainer.innerHTML = "";
-    currentLap = 1;
-    lapsTotal = parseInt(lapsInput.value);
-
-    const difficulty = aiDifficultySelect.value;
-    switch (difficulty) {
-      case "easy":
-        difficultyMultiplier = 0.7;
-        break;
-      case "medium":
-        difficultyMultiplier = 1;
-        break;
-      case "hard":
-        difficultyMultiplier = 1.25;
-        break;
-      case "veryhard":
-        difficultyMultiplier = 1.5;
-        break;
-      default:
-        difficultyMultiplier = 1;
-        break;
-    }
-
-    assignAINames();
-
-    const points = trackShapes[selectedTrackIndex];
-    trackLengthPx = 0;
-    for (let i = 0; i < points.length; i++) {
-      let p1 = points[i];
-      let p2 = points[(i + 1) % points.length];
-      let x1 = TRACK_WIDTH / 2 + p1.radiusX * Math.cos(p1.angle);
-      let y1 = TRACK_HEIGHT / 2 + p1.radiusY * Math.sin(p1.angle);
-      let x2 = TRACK_WIDTH / 2 + p2.radiusX * Math.cos(p2.angle);
-      let y2 = TRACK_HEIGHT / 2 + p2.radiusY * Math.sin(p2.angle);
-      trackLengthPx += Math.hypot(x2 - x1, y2 - y1);
-    }
-
-    for (let i = 0; i < CAR_COUNT; i++) {
-      raceState.push({
-        t: 0,
-        lateralOffset: i === selectedCarIndex ? 0 : (i % 2 === 0 ? 20 : -20) * (Math.floor(i / 2) + 1),
-        speed: 0,
-        lap: 1,
-        finished: false,
-        finishTime: null,
-        aiState: {
-          targetSpeed: 0,
-          steerTarget: 0,
-        }
-      });
-
-      const carEl = document.createElement("div");
-      carEl.className = "car";
-      if (i === selectedCarIndex) carEl.classList.add("player");
-      carEl.id = "car" + i;
-      let aiName = i === selectedCarIndex ? "" : " (" + AI_CAR_NAMES[i] + ")";
-      carEl.textContent = cars[i].emoji;
-      carEl.setAttribute("aria-label", cars[i].type + aiName);
-      carsContainer.appendChild(carEl);
-    }
-
-    raceStatus.textContent = `Lap: 1 / ${lapsTotal}`;
-
-    drawTrackShapeOnCanvas(points);
-  }
-
-  window.addEventListener("keydown", (e) => {
-    if (!screens.race.classList.contains("active")) return;
-    if (e.repeat) return;
-    switch (e.key) {
-      case "ArrowLeft":
-      case "a":
-      case "A":
-        keys.left = true;
-        break;
-      case "ArrowRight":
-      case "d":
-      case "D":
-        keys.right = true;
-        break;
-      case "ArrowUp":
-      case "w":
-      case "W":
-        keys.accelerate = true;
-        break;
-    }
-  });
-  window.addEventListener("keyup", (e) => {
-    if (!screens.race.classList.contains("active")) return;
-    switch (e.key) {
-      case "ArrowLeft":
-      case "a":
-      case "A":
-        keys.left = false;
-        break;
-      case "ArrowRight":
-      case "d":
-      case "D":
-        keys.right = false;
-        break;
-      case "ArrowUp":
-      case "w":
-      case "W":
-        keys.accelerate = false;
-        break;
-    }
-  });
-
-  // Controller detection
-  let usingController = false;
-  let lastInputType = "Not detected";
-
-  window.addEventListener("gamepadconnected", function(e) {
-    usingController = true;
-    lastInputType = "Controller";
-    updateControllerStatus();
-  });
-  window.addEventListener("gamepaddisconnected", function(e) {
-    usingController = false;
-    lastInputType = "Not detected";
-    updateControllerStatus();
-  });
-
-  window.addEventListener("keydown", (e) => {
-    if (!usingController) {
-      lastInputType = "Keyboard";
-      updateControllerStatus();
-    }
-  });
-
-  function updateControllerStatus() {
-    controllerStatus.textContent = "Controller: " + lastInputType;
-  }
-  updateControllerStatus();
-
-  function monitorGamepadInput() {
-    if (!usingController) {
-      const gps = navigator.getGamepads ? navigator.getGamepads() : [];
-      for (let gp of gps) {
-        if (!gp) continue;
-        for (let b of gp.buttons) {
-          if (b.pressed) {
-            if (!usingController) {
-              usingController = true;
-              lastInputType = "Controller";
-              updateControllerStatus();
-            }
-            break;
-          }
-        }
-        for (let a of gp.axes) {
-          if (Math.abs(a) > 0.2) {
-            if (!usingController) {
-              usingController = true;
-              lastInputType = "Controller";
-              updateControllerStatus();
-            }
-            break;
-          }
-        }
-      }
-    }
-    requestAnimationFrame(monitorGamepadInput);
-  }
-  monitorGamepadInput();
-
-  function raceStep() {
-    if (raceState.every((c) => c.finished)) {
-      clearInterval(raceInterval);
-      showPodium();
+  btnRaceStart.onclick = () => {
+    const laps = parseInt(lapsInput.value);
+    if (Number.isNaN(laps) || laps < 1 || laps > 9999) {
+      alert("Please enter a valid laps number (1-9999)");
+      lapsInput.focus();
       return;
     }
-
-    const points = trackShapes[selectedTrackIndex];
-
-    raceState.forEach((carState, i) => {
-      if (carState.finished) return;
-
-      const car = cars[i];
-      const stat = car.stats;
-      const maxSpeed = stat.spd * 22;
-      const maxAcc = (stat.acc / 5) * 1.5;
-      const handl = stat.hnd / 5;
-      const brakeForce = stat.force / 5;
-
-      if (i === selectedCarIndex) {
-        if (keys.accelerate || (usingController && getControllerAcceleration())) {
-          carState.speed += maxAcc;
-          if (carState.speed > maxSpeed) carState.speed = maxSpeed;
-        } else {
-          carState.speed -= brakeForce * 0.5;
-          if (carState.speed < 0) carState.speed = 0;
-        }
-        let steerChange = 0;
-        if (keys.left) steerChange -= 1.5 * (1 / handl);
-        if (keys.right) steerChange += 1.5 * (1 / handl);
-        if (usingController) {
-          const axis = getControllerSteer();
-          if (axis < -0.15) steerChange += axis * 3 / handl;
-          else if (axis > 0.15) steerChange += axis * 3 / handl;
-        }
-        carState.lateralOffset += steerChange;
-        if (carState.lateralOffset > 60) {
-          carState.lateralOffset = 60;
-          carState.speed *= brakeForce;
-          raceStatus.textContent = "⚠️ You hit the wall and slowed down!";
-        } else if (carState.lateralOffset < -60) {
-          carState.lateralOffset = -60;
-          carState.speed *= brakeForce;
-          raceStatus.textContent = "⚠️ You hit the wall and slowed down!";
-        } else {
-          raceStatus.textContent = `Lap: ${currentLap} / ${lapsTotal}`;
-        }
-      } else {
-        const ai = carState.aiState;
-        let baseTarget =
-          (0.7 + 0.3 * Math.random()) *
-          maxSpeed *
-          difficultyMultiplier *
-          (0.8 + ((lapsTotal - currentLap) / lapsTotal) * 0.4);
-
-        if (!ai.targetSpeed || Math.abs(ai.targetSpeed - carState.speed) < 1) {
-          ai.targetSpeed = baseTarget;
-        }
-        if (carState.speed < ai.targetSpeed) {
-          carState.speed += maxAcc * 0.95;
-          if (carState.speed > ai.targetSpeed) carState.speed = ai.targetSpeed;
-        } else if (carState.speed > ai.targetSpeed) {
-          carState.speed -= brakeForce * 0.25;
-          if (carState.speed < ai.targetSpeed) carState.speed = ai.targetSpeed;
-        }
-
-        if (!ai.steerTarget || Math.abs(ai.steerTarget - carState.lateralOffset) < 2) {
-          let steerRange = 50 * (1.2 - handl);
-          ai.steerTarget = (Math.random() - 0.5) * steerRange;
-        }
-        let deltaLat = ai.steerTarget - carState.lateralOffset;
-        carState.lateralOffset += deltaLat * 0.06 * handl;
-
-        if (carState.lateralOffset > 60) {
-          carState.lateralOffset = 60;
-          carState.speed *= brakeForce * 0.9;
-        } else if (carState.lateralOffset < -60) {
-          carState.lateralOffset = -60;
-          carState.speed *= brakeForce * 0.9;
-        }
-      }
-
-      let distanceTravel = carState.speed;
-      let distNorm = distanceTravel / trackLengthPx;
-
-      carState.t += distNorm;
-      if (carState.t > 1) {
-        carState.t -= 1;
-        carState.lap++;
-        if (carState.lap > lapsTotal) {
-          carState.finished = true;
-          carState.finishTime = performance.now();
-        }
-        if (i === selectedCarIndex) currentLap = carState.lap;
-      }
+    lapsTotal = laps;
+    startCountdown(() => {
+      showScreen("race");
+      startRace();
     });
+  };
 
-    ctx.clearRect(0, 0, TRACK_WIDTH, TRACK_HEIGHT);
-    drawTrackShapeOnCanvas(trackShapes[selectedTrackIndex]);
+  btnBackHome.onclick = () => {
+    showScreen("home");
+    clearInterval(raceInterval);
+    resetGameState();
+  };
 
-    raceState.forEach((carState, i) => {
-      const pos = getTrackPos(trackShapes[selectedTrackIndex], carState.t);
-      let perpAngle = pos.tangent + Math.PI / 2;
-
-      let carX = pos.x + carState.lateralOffset * Math.cos(perpAngle);
-      let carY = pos.y + carState.lateralOffset * Math.sin(perpAngle);
-
-      const cEl = document.getElementById("car" + i);
-      if (!cEl) return;
-
-      cEl.style.left = `${carX - cEl.offsetWidth / 2}px`;
-      cEl.style.top = `${carY - cEl.offsetHeight}px`;
-
-      let lean = (carState.lateralOffset / 60) * 15;
-      let deg = (pos.tangent * 180) / Math.PI;
-      cEl.style.transform = `rotate(${deg + lean}deg)`;
-      cEl.style.opacity = carState.finished ? "0.6" : "1";
-      cEl.title = i === selectedCarIndex ? `${cars[i].type} (Player)` : AI_CAR_NAMES[i];
-    });
-  }
-
-  function getControllerSteer() {
-    const gps = navigator.getGamepads ? navigator.getGamepads() : [];
-    for (const gp of gps) {
-      if (!gp) continue;
-      if (gp.axes.length > 0) {
-        return gp.axes[0];
-      }
-    }
-    return 0;
-  }
-  function getControllerAcceleration() {
-    const gps = navigator.getGamepads ? navigator.getGamepads() : [];
-    for (const gp of gps) {
-      if (!gp) continue;
-      if (gp.buttons.length > 7) {
-        return gp.buttons[7].pressed || gp.buttons[7].value > 0.1;
-      }
-    }
-    return false;
-  }
-
-  function showPodium() {
-    let finishedCars = raceState
-      .map((carState, i) => ({ ...carState, index: i }))
-      .filter((c) => c.finished && c.finishTime !== null)
-      .sort((a, b) => a.finishTime - b.finishTime);
-
-    let podiumText = "🏆 Race Results 🏆\n";
-    let winnerTime = finishedCars.length ? finishedCars[0].finishTime : 0;
-    finishedCars.forEach((c, i) => {
-      let seconds = ((c.finishTime - winnerTime) / 1000).toFixed(2);
-      const car = cars[c.index];
-      const aiName = c.index === selectedCarIndex ? "(You)" : `(${AI_CAR_NAMES[c.index]})`;
-      podiumText += `${i + 1}. ${car.emoji} ${car.type} ${aiName} - +${seconds}s\n`;
-    });
-
-    raceStatus.style.whiteSpace = "pre-line";
-    raceStatus.textContent = podiumText;
-  }
-
-  function drawTrackShapeOnCanvas(points) {
-    ctx.clearRect(0, 0, TRACK_WIDTH, TRACK_HEIGHT);
-    ctx.fillStyle = "#222";
-    ctx.fillRect(0, 0, TRACK_WIDTH, TRACK_HEIGHT);
-
-    ctx.strokeStyle = "#0a3dff";
-    ctx.lineWidth = 8;
-    ctx.shadowColor = "#0a3dffbb";
-    ctx.shadowBlur = 20;
-    ctx.beginPath();
-    for (let i = 0; i < points.length; i++) {
-      let p = points[i];
-      let x = TRACK_WIDTH / 2 + p.radiusX * Math.cos(p.angle);
-      let y = TRACK_HEIGHT / 2 + p.radiusY * Math.sin(p.angle);
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
-    ctx.closePath();
-    ctx.stroke();
-
-    let finishAngle = 0;
-    let rX = TRACK_WIDTH / 2 - TRACK_MARGIN;
-    let rY = TRACK_HEIGHT / 2 - TRACK_MARGIN;
-    let fx1 = TRACK_WIDTH / 2 + rX * Math.cos(finishAngle);
-    let fy1 = TRACK_HEIGHT / 2 + rY * Math.sin(finishAngle);
-    let fx2 = TRACK_WIDTH / 2 + (rX - 30) * Math.cos(finishAngle);
-    let fy2 = TRACK_HEIGHT / 2 + (rY - 80) * Math.sin(finishAngle);
-    ctx.strokeStyle = "#0a3dff";
-    ctx.lineWidth = 14;
-    ctx.beginPath();
-    ctx.moveTo(fx1, fy1 - 25);
-    ctx.lineTo(fx2, fy2 - 25);
-    ctx.moveTo(fx1, fy1 + 25);
-    ctx.lineTo(fx2, fy2 + 25);
-    ctx.stroke();
-  }
-
-  function getTrackPos(points, t) {
-    let segLengths = [];
-    let totalLength = 0;
-    for (let i = 0; i < points.length; i++) {
-      let p1 = points[i];
-      let p2 = points[(i + 1) % points.length];
-      let x1 = TRACK_WIDTH / 2 + p1.radiusX * Math.cos(p1.angle);
-      let y1 = TRACK_HEIGHT / 2 + p1.radiusY * Math.sin(p1.angle);
-      let x2 = TRACK_WIDTH / 2 + p2.radiusX * Math.cos(p2.angle);
-      let y2 = TRACK_HEIGHT / 2 + p2.radiusY * Math.sin(p2.angle);
-      let dist = Math.hypot(x2 - x1, y2 - y1);
-      segLengths.push(dist);
-      totalLength += dist;
-    }
-
-    let targetDist = t * totalLength;
-    let distSum = 0;
-    for (let i = 0; i < points.length; i++) {
-      if (distSum + segLengths[i] >= targetDist) {
-        let over = targetDist - distSum;
-        let ratio = over / segLengths[i];
-        let p1 = points[i];
-        let p2 = points[(i + 1) % points.length];
-        let x1 = TRACK_WIDTH / 2 + p1.radiusX * Math.cos(p1.angle);
-        let y1 = TRACK_HEIGHT / 2 + p1.radiusY * Math.sin(p1.angle);
-        let x2 = TRACK_WIDTH / 2 + p2.radiusX * Math.cos(p2.angle);
-        let y2 = TRACK_HEIGHT / 2 + p2.radiusY * Math.sin(p2.angle);
-        let x = x1 + (x2 - x1) * ratio;
-        let y = y1 + (y2 - y1) * ratio;
-        let tangent = Math.atan2(y2 - y1, x2 - x1);
-        return { x, y, tangent };
-      }
-      distSum += segLengths[i];
-    }
-    let p = points[0];
-    return {
-      x: TRACK_WIDTH / 2 + p.radiusX * Math.cos(p.angle),
-      y: TRACK_HEIGHT / 2 + p.radiusY * Math.sin(p.angle),
-      tangent: 0,
-    };
-  }
-
-  function resetGameState() {
-    selectedCarIndex = null;
-    selectedTrackIndex = null;
-    btnCarNext.disabled = true;
-    btnTrackNext.disabled = true;
-    document.querySelectorAll("#carSelect .car-btn").forEach((b) => b.classList.remove("selected"));
-    document.querySelectorAll("#trackSelect .trackThumbnail").forEach((t) => t.classList.remove("selected"));
-    statsContainer.innerHTML = "";
-    carsContainer.innerHTML = "";
-    raceStatus.textContent = "";
-    raceStatus.style.whiteSpace = "normal";
-  }
-
-  function resizeCanvasAndTrack() {
-    TRACK_WIDTH = raceCanvas.clientWidth;
-    TRACK_HEIGHT = raceCanvas.clientHeight;
-
-    raceCanvas.width = TRACK_WIDTH * devicePixelRatio;
-    raceCanvas.height = TRACK_HEIGHT * devicePixelRatio;
-    ctx.setTransform(1,0,0,1,0,0);
-    ctx.scale(devicePixelRatio, devicePixelRatio);
-
-    // Generate tracks and clear selection + disable next until track picked
-    generateTracks().then(() => {
-      if (selectedTrackIndex !== null) {
-        drawTrackShapeOnCanvas(trackShapes[selectedTrackIndex]);
-      }
-    });
-  }
-
-  function startCountdown(onFinish) {
-    countdownOverlay.style.display = "flex";
-    let count = 3;
-    countdownOverlay.textContent = count;
-    const interval = setInterval(() => {
-      count--;
-      if (count > 0) {
-        countdownOverlay.textContent = count;
-      } else if (count === 0) {
-        countdownOverlay.textContent = "GO!";
-      } else {
-        countdownOverlay.style.display = "none";
-        clearInterval(interval);
-        onFinish();
-      }
-    }, 1000);
-  }
-
-  function startRace() {
-    initRace();
-    if (raceInterval) clearInterval(raceInterval);
-    raceInterval = setInterval(raceStep, 1000 / 60);
-  }
-
-  function init() {
-    createCarButtons();
-    resizeCanvasAndTrack();
-    renderSelectedCarStats();
-
-    btnToCarSelect.onclick = () => {
-      showScreen("car");
-    };
-    btnCarBack.onclick = () => {
-      showScreen("home");
-    };
-    btnCarNext.onclick = () => {
-      if (selectedCarIndex !== null) showScreen("track");
-    };
-    btnTrackBack.onclick = () => {
-      showScreen("car");
-    };
-    btnTrackNext.onclick = () => {
-      if (selectedTrackIndex !== null) {
-        renderSelectedCarStats();
-        showScreen("options");
-      }
-    };
-    btnOptionsBack.onclick = () => {
-      showScreen("track");
-    };
-
-    btnRaceStart.onclick = () => {
-      const laps = parseInt(lapsInput.value);
-      if (Number.isNaN(laps) || laps < 1 || laps > 9999) {
-        alert("Please enter a valid laps number (1-9999)");
-        lapsInput.focus();
-        return;
-      }
-      lapsTotal = laps;
-      startCountdown(() => {
-        showScreen("race");
-        startRace();
-      });
-    };
-
-    btnBackHome.onclick = () => {
-      showScreen("home");
-      clearInterval(raceInterval);
-      resetGameState();
-    };
-
-    btnShowControls.onclick = () => {
-      controlsModalBg.style.display = "flex";
-    };
-    btnCloseControls.onclick = () => {
-      controlsModalBg.style.display = "none";
-    };
-    controlsModalBg.onclick = (e) => {
-      if (e.target === controlsModalBg) btnCloseControls.click();
-    };
-
-    window.addEventListener("resize", () => {
-      resizeCanvasAndTrack();
-    });
-  }
-  init();
-
+  btnShowControls.onclick = () => {
+    controlsModalBg.style.display = "flex";
+  };
+  btnCloseControls.onclick = () => {
+    controlsModalBg.style.display = "none";
+  };
+  controlsModalBg.onclick = (e) => {
+    if (e.target === controlsModalBg) btnCloseControls.click();
+  };
+}
+init();
 </script>
-
 </body>
 </html>
