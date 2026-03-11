@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Zen Gravity Sandbox</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f0f4f8;
+      user-select: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    h1.title {
+      color: #5c6ac4;
+      margin: 0 0 8px 0;
+      text-align: center;
+      user-select: none;
+    }
+
+    p.description {
+      text-align: center;
+      color: #666;
+      margin: 0 0 18px 0;
+      font-style: italic;
+      user-select: none;
+    }
+
+    #sandbox {
+      display: block;
+      border-radius: 10px;
+      box-shadow: 0 0 25px #bcc9f4;
+      background: #e0e7ff;
+      filter:
+        drop-shadow(0 0 6px rgba(92,106,196,0.25))
+        drop-shadow(0 0 10px rgba(92,106,196,0.15));
+      touch-action: none;
+    }
+
+    .controls {
+      margin: 12px 0 20px;
+      display: flex;
+      gap: 12px;
+      user-select: none;
+    }
+
+    button {
+      background-color: #5c6ac4;
+      color: white;
+      border: none;
+      padding: 8px 18px;
+      border-radius: 6px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+      box-shadow: 0 3px 6px rgba(92,106,196,0.5);
+    }
+
+    button:hover {
+      background-color: #4b579e;
+    }
+
+    @media (max-width: 600px) {
+      #sandbox {
+        width: 90vw !important;
+        height: 60vh !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1 class="title">Zen Gravity Sandbox</h1>
+  <p class="description">Drag balls and watch them collide peacefully under gravity.<br>
+    Click canvas to add balls.</p>
+
+  <div class="controls">
+    <button id="gravityToggle">Toggle Gravity</button>
+    <button id="resetSandbox">Reset Sandbox</button>
+  </div>
+
+  <canvas id="sandbox"></canvas>
+
+  <!-- Matter.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/matter-js@0.19.0/build/matter.min.js"></script>
+  <script>
+    const { Engine, Render, Runner, World, Bodies, Mouse, MouseConstraint } = Matter;
+
+    const MAX_BALLS = 50;
+
+    const canvas = document.getElementById('sandbox');
+    let width, height;
+
+    // Create physics engine and world
+    const engine = Engine.create();
+    engine.gravity.y = 0.5;
+    const world = engine.world;
+
+    // Responsive canvas sizing function
+    function resize() {
+      // Use 90% viewport width or max 800, and 70% viewport height or max 600
+      width = Math.min(window.innerWidth * 0.9, 800);
+      height = Math.min(window.innerHeight * 0.7, 600);
+
+      canvas.width = width;
+      canvas.height = height;
+
+      if (render) {
+        render.options.width = width;
+        render.options.height = height;
+        render.canvas.width = width;
+        render.canvas.height = height;
+      }
+    }
+
+    // Create renderer
+    const render = Render.create({
+      canvas: canvas,
+      engine: engine,
+      options: {
+        width: 800,
+        height: 600,
+        wireframes: false,
+        background: '#e0e7ff',
+        pixelRatio: window.devicePixelRatio,
+      }
+    });
+    Render.run(render);
+
+    const runner = Runner.create();
+    Runner.run(runner, engine);
+
+    // Walls container for resizing
+    let walls = [];
+
+    // Create static boundary walls
+    function createWalls() {
+      const thickness = 60;
+      // Remove old walls
+      if (walls.length) {
+        World.remove(world, walls);
+      }
+      walls = [
+        Bodies.rectangle(width/2, -thickness/2, width, thickness, { isStatic: true }),
+        Bodies.rectangle(width/2, height + thickness/2, width, thickness, { isStatic: true }),
+        Bodies.rectangle(-thickness/2, height/2, thickness, height, { isStatic: true }),
+        Bodies.rectangle(width + thickness/2, height/2, thickness, height, { isStatic: true }),
+      ];
+      World.add(world, walls);
+    }
+
+    // Function to create ball bodies with random color & radius
+    function createBall(x, y) {
+      const radius = 20 + Math.random() * 20;
+      const color = `hsl(${Math.random() * 360}, 70%, 70%)`;
+      return Bodies.circle(x, y, radius, {
+        restitution: 0.8,
+        frictionAir: 0.02,
+        render: {
+          fillStyle: color,
+          strokeStyle: '#fff',
+          lineWidth: 2,
+        },
+      });
+    }
+
+    // Initial balls array for management
+    let balls = [];
+
+    // Add initial balls at start
+    function addInitialBalls(count = 12) {
+      for (let i = 0; i < count; i++) {
+        const ball = createBall(
+          100 + Math.random() * (width - 200),
+          100 + Math.random() * (height - 200)
+        );
+        balls.push(ball);
+        World.add(world, ball);
+      }
+    }
+
+    // Remove all balls from the world and array
+    function clearBalls() {
+      World.remove(world, balls);
+      balls = [];
+    }
+
+    // Setup mouse control for drag & drop
+    const mouse = Mouse.create(canvas);
+    const mouseConstraint = MouseConstraint.create(engine, {
+      mouse: mouse,
+      constraint: {
+        stiffness: 0.2,
+        render: { visible: false }
+      }
+    });
+    World.add(world, mouseConstraint);
+    render.mouse = mouse;
+
+    // Add ball on canvas click if max ball limit not exceeded
+    canvas.addEventListener('mousedown', event => {
+      if (balls.length >= MAX_BALLS) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+
+      const ball = createBall(x, y);
+      balls.push(ball);
+      World.add(world, ball);
+    });
+
+    // Gravity toggle button
+    const gravityToggle = document.getElementById('gravityToggle');
+    gravityToggle.addEventListener('click', () => {
+      engine.gravity.y = engine.gravity.y === 0 ? 0.5 : 0;
+      gravityToggle.textContent = engine.gravity.y === 0 ? 'Enable Gravity' : 'Disable Gravity';
+    });
+
+    // Reset sandbox button
+    const resetBtn = document.getElementById('resetSandbox');
+    resetBtn.addEventListener('click', () => {
+      clearBalls();
+      addInitialBalls(12);
+    });
+
+    // Initial setup and resize event
+    function setup() {
+      resize();
+      createWalls();
+      clearBalls();
+      addInitialBalls(12);
+    }
+    setup();
+
+    window.addEventListener('resize', () => {
+      resize();
+      createWalls();
+    });
+  </script>
+</body>
+</html>
