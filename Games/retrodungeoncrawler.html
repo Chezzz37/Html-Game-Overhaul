@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Retro Dungeon Crawler (Procedural Generation)</title>
+<!-- Update CSS inside <style> -->
+
+<style>
+  /* Retro pixel style */
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+  body {
+    margin: 0; background: #222; color: #eee;
+    font-family: 'Press Start 2P', cursive;
+    user-select: none;
+  }
+  h1 {
+    text-align: center;
+    margin: 10px auto;
+    color: #6fffe9;
+  }
+  #game-container {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    padding: 10px;
+    flex-wrap: wrap;
+  }
+  #map {
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    background-color: #000;
+    border: 3px solid #6fffe9;
+    width: 640px; height: 480px;
+  }
+  #ui {
+    max-width: 360px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    font-size: 12px; /* Make side text bigger */
+  }
+  #log {
+    background: #111;
+    border: 2px solid #6fffe9;
+    height: 200px;
+    overflow-y: auto;
+    padding: 5px;
+    font-size: 10px; /* Bigger font */
+  }
+  .panel {
+    background: #111;
+    border: 2px solid #6fffe9;
+    padding: 10px;
+  }
+  #stats, #inventory {
+    font-size: 12px; /* Bigger stats and inventory text */
+  }
+  #inventory {
+    display: grid;
+    grid-template-columns: repeat(5, 40px);
+    grid-gap: 4px;
+  }
+  .item-slot {
+    border: 1px solid #6fffe9;
+    background: #222;
+    width: 38px; height: 38px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 7px; /* slightly bigger for inventory text */
+    cursor: pointer;
+  }
+  .selected {
+    outline: 2px solid #6fffe9;
+  }
+  #instructions {
+    font-size: 14px; /* make instructions bigger */
+    margin-top: 5px;
+    color: #bbb;
+    text-align: center;
+    font-weight: bold;
+  }
+  canvas {
+    background-color: #000;
+  }
+
+  /* Move the #instructions below game-container horizontally */
+  #instructions {
+    margin: 0 auto;
+    max-width: calc(640px + 360px + 20px); /* total width of map + ui + gap */
+    padding: 10px 0;
+  }
+</style>
+
+</head>
+<body>
+
+<h1>Retro Dungeon Crawler</h1>
+<div id="game-container">
+  <canvas id="map" width="64" height="48" style="width:640px; height:480px;"></canvas>
+  <div id="ui">
+    <div id="stats" class="panel">
+      <h3>Player Stats</h3>
+      <div>HP: <span id="hp">--</span> / <span id="maxHp">--</span></div>
+      <div>STR: <span id="str">--</span></div>
+      <div>DEX: <span id="dex">--</span></div>
+      <div>INT: <span id="int">--</span></div>
+      <div>XP: <span id="xp">0</span></div>
+      <div>Level: <span id="level">1</span></div>
+    </div>
+    <div id="inventory" class="panel" title="Inventory - Click item to equip/use"></div>
+    <div class="panel">
+      <h3>Controls & Info</h3>
+      <div>Arrow Keys / WASD: Move</div>
+      <div>Z: Attack / Interact</div>
+      <div>X: End Turn</div>
+      <div>I: Inventory open/close</div>
+    </div>
+    <div id="log" class="panel" aria-live="polite" aria-atomic="true"></div>
+  </div>
+</div>
+<div id="instructions">* Procedurally generated dungeon using BSP * Enemies use A* pathfinding * Turn-based combat * Inventory management & equipment *</div>
+
+<script>
+(() => {
+  const CELL_WALL = 0, CELL_FLOOR = 1, CELL_CORRIDOR = 2;
+  const TILE_SIZE = 10; 
+  const MAP_W = 64, MAP_H = 48; // grid cells
+
+  class Rect {
+    constructor(x,y,w,h){ this.x=x; this.y=y; this.w=w; this.h=h; }
+    center(){ return [Math.floor(this.x+this.w/2), Math.floor(this.y+this.h/2)]; }
+    intersects(other){
+      return !(this.x + this.w <= other.x || other.x + other.w <= this.x ||
+               this.y + this.h <= other.y || other.y + other.h <= this.y);
+    }
+  }
+
+  // Binary Space Partitioning for dungeon generation
+  class BSPNode {
+    constructor(rect, level = 0) {
+      this.rect = rect;
+      this.level = level;
+      this.left = null;
+      this.right = null;
+      this.room = null;
+    }
+    split(minSize){
+      if(this.left || this.right) return false; // already split
+      let splitHorizontal = Math.random() < 0.5;
+      if(this.rect.w / this.rect.h > 1.25) splitHorizontal = false;
+      else if(this.rect.h / this.rect.w > 1.25) splitHorizontal = true;
+
+      let max = (splitHorizontal ? this.rect.h : this.rect.w) - minSize;
+      if(max <= minSize) return false;
+      let splitAt = getRandomInt(minSize, max);
+
+      if(splitHorizontal){
+        this.left = new BSPNode(new Rect(this.rect.x, this.rect.y, this.rect.w, splitAt), this.level+1);
+        this.right = new BSPNode(new Rect(this.rect.x, this.rect.y+splitAt, this.rect.w, this.rect.h - splitAt), this.level+1);
+      } else {
+        this.left = new BSPNode(new Rect(this.rect.x, this.rect.y, splitAt, this.rect.h), this.level+1);
+        this.right = new BSPNode(new Rect(this.rect.x+splitAt, this.rect.y, this.rect.w - splitAt, this.rect.h), this.level+1);
+      }
+      return true;
+    }
+    createRooms() {
+      if(this.left || this.right){
+        if(this.left) this.left.createRooms();
+        if(this.right) this.right.createRooms();
+        if(this.left && this.right) {
+          createCorridor(this.left.getRoom(), this.right.getRoom());
+        }
+      } else {
+        // Create room smaller than node rect
+        let roomSizeW = getRandomInt(3, this.rect.w - 2);
+        let roomSizeH = getRandomInt(3, this.rect.h - 2);
+        let roomX = getRandomInt(this.rect.x + 1, this.rect.x + this.rect.w - roomSizeW - 1);
+        let roomY = getRandomInt(this.rect.y + 1, this.rect.y + this.rect.h - roomSizeH - 1);
+        this.room = new Rect(roomX, roomY, roomSizeW, roomSizeH);
+        carveRoom(this.room);
+        rooms.push(this.room);
+      }
+    }
+    getRoom() {
+      if(this.room) return this.room;
+      else {
+        let lroom = null, rroom = null;
+        if(this.left) lroom = this.left.getRoom();
+        if(this.right) rroom = this.right.getRoom();
+        if(!lroom) return rroom;
+        if(!rroom) return lroom;
+        if(Math.random() < 0.5) return lroom;
+        return rroom;
+      }
+    }
+  }
+
+  // Globals    
+  const map = new Array(MAP_W*MAP_H).fill(CELL_WALL);
+  let rooms = [];
+  let player = {
+    x: 0,
+    y: 0,
+    hp: 20,
+    maxHp:20,
+    str: 5,
+    dex: 4,
+    int: 3,
+    xp: 0,
+    level: 1,
+    inventory: [],
+    equipped: {weapon: null, armor: null}
+  };
+  let enemies = [];
+  let turn = 'player';
+  let logMessages = [];
+  const inventorySize = 20;
+
+  // Tile colors: floor, wall, corridor, player, enemy, items
+  const COLORS = {
+    floor: "#404040",
+    wall: "#111111",
+    corridor: "#606060",
+    player: "#00FFAA",
+    enemy: "#FF4444",
+    item: "#FFD700",
+    weapon: "#AAAAFF",
+    armor: "#FFAA00"
+  };
+
+  // Set map cell
+  function setCell(x,y,val){
+    if(x < 0 || x >= MAP_W || y < 0 || y >= MAP_H) return;
+    map[y*MAP_W+x] = val;
+  }
+  // Get map cell
+  function getCell(x,y){
+    if(x < 0 || x >= MAP_W || y < 0 || y >= MAP_H) return CELL_WALL;
+    return map[y*MAP_W+x];
+  }
+
+  function carveRoom(room){
+    for(let y=room.y; y < room.y + room.h; y++){
+      for(let x=room.x; x < room.x + room.w; x++){
+        setCell(x,y,CELL_FLOOR);
+      }
+    }
+  }
+
+  function createCorridor(roomA, roomB) {
+    // Simple L-shaped corridor connecting centers
+    let [x1,y1] = roomA.center();
+    let [x2,y2] = roomB.center();
+    if(Math.random() < 0.5){
+      carveHCorridor(x1, x2, y1);
+      carveVCorridor(y1, y2, x2);
+    } else {
+      carveVCorridor(y1, y2, x1);
+      carveHCorridor(x1, x2, y2);
+    }
+  }
+  function carveHCorridor(x1, x2, y){
+    for(let x = Math.min(x1,x2); x<=Math.max(x1,x2); x++){
+      if(getCell(x,y) === CELL_WALL) setCell(x,y,CELL_CORRIDOR);
+    }
+  }
+  function carveVCorridor(y1, y2, x){
+    for(let y = Math.min(y1,y2); y<=Math.max(y1,y2); y++){
+      if(getCell(x,y) === CELL_WALL) setCell(x,y,CELL_CORRIDOR);
+    }
+  }
+
+  // Enemy and Item definitions:
+  const enemyTypes = [
+    {name: "Goblin", hp: 10, str: 3, dex: 4, int: 2, symbol: "G", color: COLORS.enemy, xp: 10, lootTable: [{type:"weapon",name:"Rusty Dagger", dmg:2}]},
+    {name: "Skeleton", hp: 14, str: 4, dex: 3, int: 1, symbol: "S", color: COLORS.enemy, xp: 20, lootTable: [{type:"armor",name:"Bone Armor", def:1}]},
+    {name: "Orc", hp: 18, str: 6, dex: 3, int: 1, symbol:"O", color: COLORS.enemy, xp: 30, lootTable: [{type:"weapon",name:"Orcish Axe", dmg:4}]}
+  ];
+
+  class Enemy {
+    constructor(type, x, y){
+      this.name = type.name;
+      this.hp = type.hp;
+      this.maxHp = type.hp;
+      this.str = type.str;
+      this.dex = type.dex;
+      this.int = type.int;
+      this.x = x;
+      this.y = y;
+      this.symbol = type.symbol;
+      this.color = type.color;
+      this.xp = type.xp;
+      this.lootTable = type.lootTable;
+      this.alive = true;
+    }
+  }
+
+  // Items
+  class Item {
+    constructor(type, name, props){
+      this.type = type;
+      this.name = name;
+      Object.assign(this, props);
+    }
+  }
+
+  let items = [];
+
+  // Place enemies and items on floor tiles randomly (not on player)
+  function placeEnemiesAndItems(){
+    let floorCells = [];
+    for(let y=0; y<MAP_H; y++){
+      for(let x=0; x<MAP_W; x++){
+        if(getCell(x,y) === CELL_FLOOR || getCell(x,y) === CELL_CORRIDOR){
+          if(x!==player.x || y!==player.y) floorCells.push([x,y]);
+        }
+      }
+    }
+    shuffleArray(floorCells);
+
+    enemies = [];
+    for(let i=0; i<10 && i<floorCells.length; i++) {
+      let [x,y] = floorCells[i];
+      let type = enemyTypes[getRandomInt(0, enemyTypes.length)];
+      enemies.push(new Enemy(type, x, y));
+    }
+
+    // Place random loot items in rooms
+    items = [];
+    for(let i=10; i<20 && i<floorCells.length; i++){
+      let [x,y] = floorCells[i];
+      let item;
+      if(Math.random() < 0.5){
+        // Weapon
+        item = new Item("weapon", "Rusty Sword", {dmg:3});
+      } else {
+        // Armor
+        item = new Item("armor", "Leather Armor", {def:1});
+      }
+      item.x = x; item.y = y;
+      items.push(item);
+    }
+  }
+
+  // Player movement and game logic
+  const canvas = document.getElementById("map");
+  const ctx = canvas.getContext("2d");
+  ctx.imageSmoothingEnabled = false;
+
+  function drawMap(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    for(let y=0; y<MAP_H; y++) {
+      for(let x=0; x<MAP_W; x++){
+        let c = map[y*MAP_W+x];
+        switch(c){
+          case CELL_WALL: ctx.fillStyle = COLORS.wall; break;
+          case CELL_FLOOR: ctx.fillStyle = COLORS.floor; break;
+          case CELL_CORRIDOR: ctx.fillStyle = COLORS.corridor; break;
+          default: ctx.fillStyle = COLORS.wall; break;
+        }
+        ctx.fillRect(x, y, 1, 1);
+      }
+    }
+  }
+
+  // Draw entities (player, enemies, items)
+  function drawEntities(){
+    // Draw items
+    items.forEach(item=>{
+      ctx.fillStyle = COLORS.item;
+      ctx.fillRect(item.x, item.y, 1,1);
+      // Add small mark for type
+      ctx.fillStyle = item.type === "weapon" ? COLORS.weapon : COLORS.armor;
+      ctx.fillRect(item.x, item.y, 1, 1);
+    });
+    // Draw enemies
+    enemies.forEach(e => {
+      if(e.alive){
+        ctx.fillStyle = e.color;
+        ctx.fillRect(e.x, e.y, 1,1);
+      }
+    });
+    // Draw player
+    ctx.fillStyle = COLORS.player;
+    ctx.fillRect(player.x, player.y, 1, 1);
+  }
+
+  // Log message window
+  const logElement = document.getElementById("log");
+  function log(msg){
+    const el = document.createElement("div");
+    el.textContent = msg;
+    logElement.appendChild(el);
+    logElement.scrollTop = logElement.scrollHeight;
+  }
+
+  // Movement helper
+  function isWalkable(x,y){
+    const c = getCell(x,y);
+    if(c === CELL_WALL) return false;
+    if(enemies.some(e=> e.x===x && e.y===y && e.alive)) return false;
+    return true;
+  }
+
+  // Move player
+  function movePlayer(dx,dy){
+    if(turn !== "player") return;
+    let nx = player.x + dx;
+    let ny = player.y + dy;
+    if(nx < 0 || ny < 0 || nx >= MAP_W || ny >= MAP_H) return;
+    const c = getCell(nx, ny);
+    if(c === CELL_WALL) return;
+
+    let enemy = enemies.find(e => e.x === nx && e.y === ny && e.alive);
+    if(enemy) {
+      attackEnemy(enemy);
+      return;
+    }
+
+    let itemIndex = items.findIndex(i => i.x === nx && i.y === ny);
+    if(itemIndex !== -1){
+      pickUpItem(items[itemIndex]);
+      items.splice(itemIndex, 1);
+    }
+    player.x = nx;
+    player.y = ny;
+    turn = 'enemy';
+    processEnemiesTurn();
+  }
+
+  // Player attack enemy
+  function attackEnemy(enemy){
+    let hitChance = Math.min(95, 50 + (player.dex - enemy.dex) * 10);
+    if(randInt(0,100) < hitChance){
+      let dmg = player.str;
+      if(player.equipped.weapon) dmg += player.equipped.weapon.dmg || 0;
+      dmg = Math.max(1, dmg - (enemy.int || 0)); // simple defense by int
+      enemy.hp -= dmg;
+      log(`You hit ${enemy.name} for ${dmg} damage!`);
+      if(enemy.hp <= 0){
+        enemy.alive = false;
+        player.xp += enemy.xp;
+        log(`${enemy.name} is dead! You gained ${enemy.xp} XP.`);
+        levelUpCheck();
+      }
+    } else {
+      log("You miss the attack.");
+    }
+    turn = 'enemy';
+    processEnemiesTurn();
+  }
+
+  // Experience and leveling
+  function levelUpCheck(){
+    const neededXP = player.level * 30; // simple XP curve
+    while(player.xp >= neededXP){
+      player.xp -= neededXP;
+      player.level++;
+      // Increase stats
+      player.maxHp += 3;
+      player.hp = player.maxHp;
+      player.str++;
+      player.dex++;
+      player.int++;
+      log("You leveled up! Stats increased.");
+    }
+    updateStatsDisplay();
+  }
+
+  // Enemy AI with A* pathfinding to player
+  function processEnemiesTurn(){
+    if(turn !== 'enemy') return;
+    // Each enemy moves or attacks if adjacent
+    for(let enemy of enemies){
+      if(!enemy.alive) continue;
+      let dist = Math.abs(enemy.x - player.x) + Math.abs(enemy.y - player.y);
+      if(dist === 1){
+        enemyAttack(enemy);
+      } else {
+        let path = findPath(enemy.x, enemy.y, player.x, player.y);
+        if(path && path.length > 1){
+          let [nx, ny] = path[1];
+          // Check for other enemies blocking
+          if(!enemies.some(e => e!==enemy && e.x === nx && e.y === ny && e.alive)){
+            enemy.x = nx;
+            enemy.y = ny;
+          }
+        }
+      }
+    }
+    turn = "player";
+    updateStatsDisplay();
+    drawAll();
+    log("Your turn.");
+  }
+
+  function enemyAttack(enemy){
+    let hitChance = Math.min(90, 40 + (enemy.dex - player.dex) * 10);
+    if(randInt(0,100) < hitChance){
+      let dmg = enemy.str;
+      if(enemy.lootTable.find(i=> i.type==="weapon")) dmg += 1; // simple weapon bonus
+      if(player.equipped.armor) dmg = Math.max(0, dmg-player.equipped.armor.def);
+      player.hp -= dmg;
+      log(`${enemy.name} hits you for ${dmg} damage!`);
+      if(player.hp <= 0){
+        player.hp = 0;
+        log("You have died! Game over.");
+        document.removeEventListener("keydown", keyDownHandler);
+      }
+    } else {
+      log(`${enemy.name} misses you.`);
+    }
+  }
+
+  // Simple A* implementation
+  function findPath(sx, sy, gx, gy) {
+    let closedSet = new Set();
+    let openSet = new Set([sx+","+sy]);
+    let cameFrom = new Map();
+    let gScore = new Map();
+    let fScore = new Map();
+
+    gScore.set(sx+","+sy, 0);
+    fScore.set(sx+","+sy, heuristic(sx,sy,gx,gy));
+
+    function neighbours(x,y){
+      const candidates = [[x+1,y],[x-1,y],[x,y+1],[x,y-1]];
+      return candidates.filter(([nx,ny])=> isWalkable(nx,ny) || (nx===gx && ny===gy));
+    }
+
+    while(openSet.size > 0){
+      let current = null;
+      let currentF = Infinity;
+      for(let node of openSet){
+        let fval = fScore.get(node) ?? Infinity;
+        if(fval < currentF) {
+          currentF = fval;
+          current = node;
+        }
+      }
+      if(!current) break;
+      let [cx, cy] = current.split(",").map(Number);
+      if(cx === gx && cy === gy){
+        // reconstruct path
+        let path = [[cx,cy]];
+        while(cameFrom.has(current)){
+          current = cameFrom.get(current);
+          let [px, py] = current.split(",").map(Number);
+          path.unshift([px,py]);
+        }
+        return path;
+      }
+
+      openSet.delete(current);
+      closedSet.add(current);
+
+      for(let [nx,ny] of neighbours(cx,cy)){
+        let neighborId = nx+","+ny;
+        if(closedSet.has(neighborId)) continue;
+        let tentativeG = (gScore.get(current) ?? Infinity) + 1;
+        if(!openSet.has(neighborId)) openSet.add(neighborId);
+        else if(tentativeG >= (gScore.get(neighborId) ?? Infinity)) continue;
+        cameFrom.set(neighborId, current);
+        gScore.set(neighborId, tentativeG);
+        fScore.set(neighborId, tentativeG + heuristic(nx, ny, gx, gy));
+      }
+    }
+    return null; // no path found
+  }
+  function heuristic(x1,y1,x2,y2){ return Math.abs(x1-x2) + Math.abs(y1-y2); }
+
+  // Pick up item
+  function pickUpItem(item){
+    if(player.inventory.length >= inventorySize) {
+      log("Inventory full! Cannot pick up " + item.name);
+      return;
+    }
+    player.inventory.push(item);
+    log("You picked up " + item.name);
+    updateInventoryUI();
+  }
+
+  // Inventory UI
+  const inventoryElement = document.getElementById("inventory");
+  let inventoryOpen = true;
+  let selectedItemIndex = null;
+
+  function updateInventoryUI(){
+    inventoryElement.innerHTML = "";
+    player.inventory.forEach((item,i)=>{
+      const slot = document.createElement("div");
+      slot.className = "item-slot";
+      slot.textContent = item.name.length > 10 ? item.name.substr(0, 10) : item.name;
+      if(i === selectedItemIndex) slot.classList.add("selected");
+      slot.title = item.type.toUpperCase() + "\n" + item.name;
+      slot.onclick = () => {
+        if(selectedItemIndex === i) {
+          equipOrUseItem(i);
+        } else {
+          selectedItemIndex = i;
+          updateInventoryUI();
+        }
+      };
+      inventoryElement.appendChild(slot);
+    });
+    // Fill empty slots
+    for(let i=player.inventory.length; i<inventorySize; i++){
+      let slot = document.createElement("div");
+      slot.className = "item-slot";
+      inventoryElement.appendChild(slot);
+    }
+  }
+
+  // Equip/use item from inventory
+  function equipOrUseItem(i){
+    let item = player.inventory[i];
+    if(item.type === "weapon"){
+      player.equipped.weapon = item;
+      log(`Equipped ${item.name} as weapon.`);
+    } else if(item.type === "armor"){
+      player.equipped.armor = item;
+      log(`Equipped ${item.name} as armor.`);
+    }
+    updateStatsDisplay();
+  }
+
+  // Update stats display
+  function updateStatsDisplay(){
+    document.getElementById("hp").textContent = player.hp;
+    document.getElementById("maxHp").textContent = player.maxHp;
+    document.getElementById("str").textContent = player.str;
+    document.getElementById("dex").textContent = player.dex;
+    document.getElementById("int").textContent = player.int;
+    document.getElementById("xp").textContent = player.xp;
+    document.getElementById("level").textContent = player.level;
+  }
+
+  // Turn ending - player can skip turn
+  function endPlayerTurn(){
+    if(turn !== "player") return;
+    turn = "enemy";
+    log("You end your turn.");
+    processEnemiesTurn();
+  }
+
+  // Drawing all elements
+  function drawAll(){
+    drawMap();
+    drawEntities();
+  }
+
+  // Utility Random Int inclusive
+  function getRandomInt(min,max){ return Math.floor(Math.random() * (max - min) + min); }
+  // Random integer in [min, max)
+  function randInt(min,max){ return Math.floor(Math.random() * (max - min) + min); }
+  // Shuffle array in place
+  function shuffleArray(array){
+    for(let i = array.length-1; i>0; i--){
+      let j = Math.floor(Math.random()*(i+1));
+      [array[i], array[j]] = [array[j], array[i]];
+    }
+  }
+
+  // Initialize dungeon
+  function generateDungeon(){
+    // Clear map
+    for(let i=0; i<map.length; i++) map[i] = CELL_WALL;
+    rooms = [];
+
+    // Create root BSP node covers whole map
+    let root = new BSPNode(new Rect(0,0,MAP_W,MAP_H));
+
+    // Iteratively split until no more splits
+    let nodes = [root];
+    let maxLevel = 4;
+    for(let i=0; i<maxLevel; i++){
+      let newNodes = [];
+      for(let node of nodes){
+        if(node.split(10)){
+          newNodes.push(node.left);
+          newNodes.push(node.right);
+        } else {
+          newNodes.push(node);
+        }
+      }
+      nodes = newNodes;
+    }
+    // Create rooms & corridors
+    root.createRooms();
+
+    // Place player at center of first room
+    let roomCenter = rooms[0].center();
+    player.x = roomCenter[0];
+    player.y = roomCenter[1];
+    player.hp = player.maxHp;
+    player.inventory = [];
+    player.equipped.weapon = null;
+    player.equipped.armor = null;
+    selectedItemIndex = null;
+    updateInventoryUI();
+    updateStatsDisplay();
+
+    // Place enemies and items
+    placeEnemiesAndItems();
+  }
+
+  // Keyboard input handling
+  function keyDownHandler(e){
+    if(turn !== "player" || player.hp <= 0) return;
+    let handled = true;
+    switch(e.key){
+      case "ArrowUp":
+      case "w":
+      case "W":
+        movePlayer(0,-1);
+        break;
+      case "ArrowDown":
+      case "s":
+      case "S":
+        movePlayer(0,1);
+        break;
+      case "ArrowLeft":
+      case "a":
+      case "A":
+        movePlayer(-1,0);
+        break;
+      case "ArrowRight":
+      case "d":
+      case "D":
+        movePlayer(1,0);
+        break;
+      case "z":
+      case "Z":
+        // Can sheathe/draw weapon or attack adjacent enemy
+        // For simplification, attack in facing direction (toward selected enemy/item or just skip)
+        let attacked = false;
+        let dirs = [[0,-1],[1,0],[0,1],[-1,0]];
+        let attackedEnemy = null;
+        for(let [dx,dy] of dirs){
+          let ex = player.x+dx, ey=player.y+dy;
+          let en = enemies.find(e => e.x === ex && e.y === ey && e.alive);
+          if(en){
+            attackEnemy(en);
+            attacked = true;
+            attackedEnemy = en;
+            break;
+          }
+        }
+        if(!attacked) log("No adjacent enemy to attack.");
+        break;
+      case "x":
+      case "X":
+        endPlayerTurn();
+        break;
+      case "i":
+      case "I":
+        inventoryOpen = !inventoryOpen;
+        inventoryElement.style.display = inventoryOpen ? "grid" : "none";
+        break;
+      default:
+        handled = false;
+        break;
+    }
+    if(handled) e.preventDefault();
+    drawAll();
+  }
+
+  // Start game setup
+  generateDungeon();
+  drawAll();
+  log("Dungeon generated. Your turn.");
+  document.addEventListener("keydown", keyDownHandler);
+  inventoryElement.style.display = "grid";
+
+})();
+</script>
+
+</body>
+</html>
