@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Pixel Art & Animation Studio</title>
+<style>
+  body {
+    margin: 0; font-family: Arial, sans-serif; background: #222; color: #eee;
+    display: flex; flex-direction: column; height: 100vh;
+  }
+  #topbar {
+    display: flex; align-items: center; padding: 6px 12px; background: #111;
+    gap: 12px;
+  }
+  #palette {
+    display: flex; flex-wrap: wrap; width: 260px; border: 1px solid #444; background: #333;
+    cursor: pointer;
+  }
+  .color-swatch {
+    width: 18px; height: 18px; margin: 1px; border: 1px solid #444;
+  }
+  .color-selected {
+    outline: 2px solid #fff;
+  }
+  #canvas-container {
+    flex: 1; display: flex; justify-content: center; align-items: center; background: #555;
+    position: relative;
+  }
+  #drawing-area {
+    position: relative;
+    image-rendering: pixelated;
+    background: #111;
+    border: 1px solid #444;
+  }
+  canvas.layer {
+    position: absolute; left: 0; top: 0;
+    image-rendering: pixelated;
+  }
+  #layers-panel {
+    width: 220px; background: #111; border-left: 1px solid #444; padding: 8px;
+    overflow-y: auto;
+  }
+  #layers-panel h3 {
+    margin-top: 0; font-weight: normal; font-size: 1.1em;
+    border-bottom: 1px solid #444; padding-bottom: 4px;
+  }
+  .layer-item {
+    background: #222; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;
+    padding: 4px; border-radius: 3px;
+  }
+  .layer-item.selected {
+    background: #007acc;
+  }
+  .layer-item input[type=range] {
+    flex: 1;
+  }
+  #frames-panel {
+    background: #111; border-top: 1px solid #444; padding: 6px 8px; display: flex; gap: 6px; overflow-x: auto;
+  }
+  .frame-thumb {
+    width: 48px; height: 48px; border: 1px solid #444; cursor: pointer; image-rendering: pixelated;
+  }
+  .frame-thumb.selected {
+    border-color: #0af;
+  }
+  #animation-controls {
+    padding: 6px 12px; background: #111; display: flex; align-items: center; gap: 10px;
+  }
+  button {
+    background: #007acc; border: none; color: white; padding: 6px 10px;
+    border-radius: 3px; cursor: pointer; font-weight: bold;
+  }
+  button:disabled {
+    background: #444;
+    cursor: not-allowed;
+  }
+  label {
+    user-select: none;
+  }
+  input[type=number] {
+    width: 60px; padding: 2px 4px; border-radius: 3px; border: 1px solid #444; background: #222; color: #eee;
+  }
+  #onion-skin-toggle {
+    margin-left: auto;
+  }
+  #status {
+    font-size: 0.9em; margin-left: 12px; min-width: 200px; user-select: none;
+  }
+</style>
+</head>
+<body>
+  <div id="topbar">
+    <div>
+      <button id="new-project-btn" title="New Project">🆕 New</button>
+      <button id="save-project-btn" title="Save Project">💾 Save</button>
+      <button id="load-project-btn" title="Load Project">📂 Load</button>
+      <input type="file" id="load-file-input" accept="application/json" style="display:none" />
+    </div>
+    <div id="palette" title="Color Palette"></div>
+    <label for="brush-size">Brush:</label>
+    <input type="number" id="brush-size" min="1" max="10" value="1" title="Brush Size (pixels)" />
+    <button id="clear-layer-btn" title="Clear Current Layer">Clear Layer</button>
+    <label id="onion-skin-toggle"><input type="checkbox" id="onion-skin-checkbox" /> Onion Skin</label>
+    <div id="status"></div>
+  </div>
+  <div style="display:flex; flex:1; overflow:hidden;">
+    <div id="canvas-container" aria-label="Pixel Art Drawing Area" role="main"></div>
+    <div id="layers-panel" aria-label="Layers Panel">
+      <h3>Layers</h3>
+      <button id="add-layer-btn" title="Add Layer">➕ Add Layer</button>
+      <div id="layers-list"></div>
+    </div>
+  </div>
+  <div id="frames-panel" aria-label="Frames Panel" role="region" aria-live="polite">
+    <button id="add-frame-btn" title="Add Frame">➕ Add Frame</button>
+  </div>
+  <div id="animation-controls" aria-label="Animation Controls">
+    <button id="play-animation-btn" title="Play Animation">▶️ Play</button>
+    <button id="stop-animation-btn" disabled title="Stop Animation">⏹ Stop</button>
+    <label for="fps-input">FPS:</label>
+    <input type="number" id="fps-input" min="1" max="24" value="8" />
+    <button id="export-png-btn" title="Export current frame as PNG">📷 Export PNG</button>
+    <button id="export-gif-btn" title="Export animation as GIF">🎞 Export GIF</button>
+  </div>
+
+<script>
+(() => {
+  const CANVAS_PIXEL_SIZE = 256; // Canvas actual pixel width and height (square)
+  const LOGICAL_SIZE = 32;       // Logical pixel art dimension (32x32)
+  const SCALE = CANVAS_PIXEL_SIZE / LOGICAL_SIZE;
+  const canvasContainer = document.getElementById('canvas-container');
+  const paletteEl = document.getElementById('palette');
+  const layersListEl = document.getElementById('layers-list');
+  const framesPanel = document.getElementById('frames-panel');
+  const brushSizeInput = document.getElementById('brush-size');
+  const onionSkinCheckbox = document.getElementById('onion-skin-checkbox');
+  const statusEl = document.getElementById('status');
+
+  // Animation controls
+  const playBtn = document.getElementById('play-animation-btn');
+  const stopBtn = document.getElementById('stop-animation-btn');
+  const fpsInput = document.getElementById('fps-input');
+  const exportPngBtn = document.getElementById('export-png-btn');
+  const exportGifBtn = document.getElementById('export-gif-btn');
+
+  // Project controls
+  const newProjectBtn = document.getElementById('new-project-btn');
+  const saveProjectBtn = document.getElementById('save-project-btn');
+  const loadProjectBtn = document.getElementById('load-project-btn');
+  const loadFileInput = document.getElementById('load-file-input');
+  const addLayerBtn = document.getElementById('add-layer-btn');
+  const addFrameBtn = document.getElementById('add-frame-btn');
+  const clearLayerBtn = document.getElementById('clear-layer-btn');
+
+  // Color palette sorted by white, red, orange, yellow, green, blue, purple, pink, brown, black
+  const COLORS = [
+    '#FFFFFF', '#C3C3C3', '#EFE4B0', '#FFD700', '#FFFACD', // whites/yellows
+    '#ED1C24', '#FF4500', '#FF7F27', '#FFA500', '#FF8C00', // reds/oranges
+    '#FFF200', '#FFFF00', '#FFE135', '#FFD300', '#F5DEB3', // yellows variant
+    '#22B14C', '#32CD32', '#228B22', '#00FF00', '#006400', // greens
+    '#00A2E8', '#1E90FF', '#3F48CC', '#4169E1', '#87CEEB', // blues
+    '#A349A4', '#8A2BE2', '#BA55D3', '#9370DB', '#DDA0DD', // purples
+    '#FFC0CB', '#FF69B4', '#FF1493', '#DB7093', '#E75480', // pinks
+    '#B97A57', '#8B4513', '#A0522D', '#D2691E', '#654321', // browns
+    '#000000', '#1C1C1C', '#2F4F4F', '#4B4B4B', '#696969'  // blacks/grays
+  ];
+
+  // Application State
+  let project = {
+    layers: [],      // Each layer: array[frames], each frame: ImageData
+    framesCount: 1,
+    currentLayer: 0,
+    currentFrame: 0,
+    palette: COLORS,
+  };
+  let currentColor = COLORS[0]; // default white
+  let mouseDown = false;
+  let pressingEraser = false;
+  let animationPlaying = false;
+  let animationInterval = null;
+
+  // Create the palette UI
+  function createPalette() {
+    paletteEl.innerHTML = '';
+    project.palette.forEach((col, i) => {
+      const swatch = document.createElement('div');
+      swatch.className = 'color-swatch';
+      swatch.style.backgroundColor = col;
+      if (col === currentColor) swatch.classList.add('color-selected');
+      swatch.title = col;
+      swatch.addEventListener('click', () => {
+        currentColor = col; updatePaletteSelection();
+      });
+      paletteEl.appendChild(swatch);
+    });
+  }
+  function updatePaletteSelection() {
+    for (const swatch of paletteEl.children) {
+      swatch.classList.toggle('color-selected', swatch.style.backgroundColor.toLowerCase() === currentColor.toLowerCase());
+    }
+  }
+
+  // Layer and Frame management ------------------------------------
+
+  // Create a blank ImageData
+  function createBlankFrame() {
+    const canvas = document.createElement('canvas');
+    canvas.width = LOGICAL_SIZE; canvas.height = LOGICAL_SIZE;
+    let ctx = canvas.getContext('2d');
+    ctx.clearRect(0,0,LOGICAL_SIZE,LOGICAL_SIZE);
+    return ctx.getImageData(0,0,LOGICAL_SIZE,LOGICAL_SIZE);
+  }
+
+  // Add a new layer with a blank frame for each current frame
+  function addLayer(name = null) {
+    const layerName = name || `Layer ${project.layers.length + 1}`;
+    const frames = [];
+    for(let i=0; i<project.framesCount; i++) {
+      frames.push(createBlankFrame());
+    }
+    project.layers.push({name: layerName, frames, opacity: 1});
+    project.currentLayer = project.layers.length -1;
+    renderLayersPanel();
+    renderCanvas();
+  }
+
+  // Add frame: add a blank frame to all layers
+  function addFrame() {
+    project.framesCount++;
+    project.layers.forEach(layer => {
+      layer.frames.push(createBlankFrame());
+    });
+    project.currentFrame = project.framesCount -1;
+    renderFramesPanel();
+    renderCanvas();
+  }
+
+  // Render Layers Panel
+  function renderLayersPanel() {
+    layersListEl.innerHTML = '';
+    project.layers.forEach((layer, idx) => {
+      const div = document.createElement('div');
+      div.className = 'layer-item' + (idx === project.currentLayer ? ' selected' : '');
+      div.tabIndex = 0;
+      div.setAttribute('role','button');
+      div.title = `Select ${layer.name}`;
+      let nameSpan = document.createElement('span');
+      nameSpan.textContent = layer.name;
+      nameSpan.style.cursor = 'default';
+
+      const opacityRange = document.createElement('input');
+      opacityRange.type = 'range';
+      opacityRange.min = 0; opacityRange.max = 1; opacityRange.step = 0.01;
+      opacityRange.value = layer.opacity;
+      opacityRange.title = 'Layer opacity';
+      opacityRange.style.width = '80px';
+      opacityRange.addEventListener('input', e => {
+        layer.opacity = parseFloat(e.target.value);
+        renderCanvas();
+      });
+
+      const renameBtn = document.createElement('button');
+      renameBtn.textContent = '✏️';
+      renameBtn.title = 'Rename Layer';
+      renameBtn.style.flexShrink = '0';
+
+      renameBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        let newName = prompt('Rename layer', layer.name);
+        if(newName) {
+          layer.name = newName.trim() || layer.name;
+          renderLayersPanel();
+        }
+      });
+
+      const deleteBtn = document.createElement('button');
+      deleteBtn.textContent = '🗑';
+      deleteBtn.title = 'Delete Layer';
+      deleteBtn.style.flexShrink = '0';
+      deleteBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        if(confirm(`Delete layer "${layer.name}"?`)) {
+          project.layers.splice(idx,1);
+          if(project.currentLayer >= project.layers.length) {
+            project.currentLayer = Math.max(0, project.layers.length -1);
+          }
+          renderLayersPanel();
+          renderCanvas();
+        }
+      });
+
+      div.appendChild(nameSpan);
+      div.appendChild(opacityRange);
+      div.appendChild(renameBtn);
+      div.appendChild(deleteBtn);
+
+      div.addEventListener('click', () => {
+        project.currentLayer = idx;
+        renderLayersPanel();
+        renderCanvas();
+      });
+      layersListEl.appendChild(div);
+    });
+  }
+
+  // Render Frames Panel
+  function renderFramesPanel() {
+    // Remove all except Add Frame button
+    const addBtn = document.getElementById('add-frame-btn');
+    framesPanel.innerHTML = '';
+    framesPanel.appendChild(addBtn);
+    // Add frame thumbs
+    for(let i=0;i<project.framesCount;i++){
+      const thumb = document.createElement('canvas');
+      thumb.width = LOGICAL_SIZE; thumb.height = LOGICAL_SIZE;
+      thumb.className = 'frame-thumb' + (i === project.currentFrame ? ' selected' : '');
+      thumb.title = `Frame ${i+1}`;
+      framesPanel.appendChild(thumb);
+
+      // Draw combined frame (all layers) into thumb
+      const ctx = thumb.getContext('2d');
+      ctx.imageSmoothingEnabled = false;
+      ctx.clearRect(0,0,LOGICAL_SIZE,LOGICAL_SIZE);
+      project.layers.forEach(layer => {
+        ctx.globalAlpha = layer.opacity;
+        ctx.putImageData(layer.frames[i], 0, 0);
+      });
+      ctx.globalAlpha = 1;
+
+      thumb.addEventListener('click', () => {
+        project.currentFrame = i;
+        renderFramesPanel();
+        renderCanvas();
+      });
+    }
+  }
+
+  // Canvas and drawing setup -------------------------------------
+
+  // Create layers canvas elements for drawing area
+  function createLayerCanvases() {
+    canvasContainer.innerHTML = '';
+    project.layers.forEach((layer, idx) => {
+      const c = document.createElement('canvas');
+      c.className = 'layer';
+      c.width = CANVAS_PIXEL_SIZE;
+      c.height = CANVAS_PIXEL_SIZE;
+      c.style.zIndex = idx + 1;
+      c.style.opacity = layer.opacity;
+      canvasContainer.appendChild(c);
+      layer.canvas = c;
+      layer.ctx = c.getContext('2d');
+    });
+    // Onion skin canvas below layers if enabled
+    onionSkinCanvas.width = CANVAS_PIXEL_SIZE;
+    onionSkinCanvas.height = CANVAS_PIXEL_SIZE;
+    onionSkinCanvas.style.zIndex = 0;
+    canvasContainer.appendChild(onionSkinCanvas);
+  }
+
+  // Onion skin canvas
+  const onionSkinCanvas = document.createElement('canvas');
+  onionSkinCanvas.className = 'layer';
+  onionSkinCanvas.style.opacity = '0.5';
+  onionSkinCanvas.style.pointerEvents = 'none';
+
+  // Render the visible frame + onion skin if toggled
+  function renderCanvas() {
+    if(project.layers.length === 0) return;
+    // Onion skin previous and next frames
+    if(onionSkinCheckbox.checked && project.framesCount > 1) {
+      let ctx = onionSkinCanvas.getContext('2d');
+      ctx.clearRect(0,0,CANVAS_PIXEL_SIZE,CANVAS_PIXEL_SIZE);
+      const prevFrame = project.currentFrame > 0 ? project.currentFrame - 1 : null;
+      const nextFrame = project.currentFrame < project.framesCount - 1 ? project.currentFrame + 1 : null;
+
+      ctx.globalAlpha = 0.3;
+      if(prevFrame !== null) {
+        project.layers.forEach(layer => {
+          ctx.putImageData(layer.frames[prevFrame], 0, 0);
+        });
+      }
+      if(nextFrame !== null) {
+        ctx.globalAlpha = 0.15;
+        project.layers.forEach(layer => {
+          ctx.putImageData(layer.frames[nextFrame], 0, 0);
+        });
+      }
+      ctx.globalAlpha = 1;
+      onionSkinCanvas.style.display = 'block';
+    } else {
+      onionSkinCanvas.style.display = 'none';
+    }
+
+    // Draw active frame layers
+    project.layers.forEach(layer => {
+      layer.ctx.clearRect(0, 0, CANVAS_PIXEL_SIZE, CANVAS_PIXEL_SIZE);
+      // Draw frame image data scaled
+      let imageData = layer.frames[project.currentFrame];
+      // Put ImageData to a temp canvas, then scale up with no smoothing
+      let tmpCanvas = document.createElement('canvas');
+      tmpCanvas.width = LOGICAL_SIZE;
+      tmpCanvas.height = LOGICAL_SIZE;
+      const tmpCtx = tmpCanvas.getContext('2d');
+      tmpCtx.putImageData(imageData, 0, 0);
+
+      layer.ctx.imageSmoothingEnabled = false;
+      layer.ctx.globalAlpha = layer.opacity;
+      layer.ctx.drawImage(tmpCanvas, 0, 0, CANVAS_PIXEL_SIZE, CANVAS_PIXEL_SIZE);
+      layer.ctx.globalAlpha = 1;
+      layer.canvas.style.opacity = layer.opacity;
+    });
+
+    updateStatus();
+  }
+
+  // Update status line
+  function updateStatus() {
+    statusEl.textContent = `Frame: ${project.currentFrame + 1}/${project.framesCount} | Layer: ${project.currentLayer + 1}/${project.layers.length} | Color: ${currentColor} | Brush: ${brushSizeInput.value}`;
+  }
+
+  // Get mouse/touch position in logical coordinates
+  function getPointerPos(evt) {
+    const rect = canvasContainer.getBoundingClientRect();
+    let clientX, clientY;
+    if(evt.touches && evt.touches.length) {
+      clientX = evt.touches[0].clientX;
+      clientY = evt.touches[0].clientY;
+    } else {
+      clientX = evt.clientX;
+      clientY = evt.clientY;
+    }
+    let x = Math.floor((clientX - rect.left)*LOGICAL_SIZE / rect.width);
+    let y = Math.floor((clientY - rect.top)*LOGICAL_SIZE / rect.height);
+    x = Math.min(Math.max(x, 0), LOGICAL_SIZE - 1);
+    y = Math.min(Math.max(y, 0), LOGICAL_SIZE - 1);
+    return {x, y};
+  }
+
+  // Draw pixel(s) in current frame of current layer
+  function drawPixel(x0, y0, color, brushSize) {
+    const layer = project.layers[project.currentLayer];
+    if(!layer) return;
+    let imgData = layer.frames[project.currentFrame];
+    let data = imgData.data;
+
+    // Enable eraser with right click or eraser key (Alt)
+    let rgba = hexToRgba(color);
+
+    for(let dx = 0; dx < brushSize; dx++) {
+      for(let dy = 0; dy < brushSize; dy++) {
+        let x = x0 + dx;
+        let y = y0 + dy;
+        if(x < 0 || y < 0 || x >= LOGICAL_SIZE || y >= LOGICAL_SIZE) continue;
+        let index = (y * LOGICAL_SIZE + x) * 4;
+        data[index] = rgba[0];
+        data[index+1] = rgba[1];
+        data[index+2] = rgba[2];
+        data[index+3] = rgba[3];
+      }
+    }
+    layer.frames[project.currentFrame] = imgData;
+  }
+
+  // Convert hex color string to rgba array [r,g,b,a]
+  function hexToRgba(hex) {
+    let c = hex.trim();
+    if(c[0] === '#') c = c.substr(1);
+    if(c.length === 3) {
+      c = c[0]+c[0]+c[1]+c[1]+c[2]+c[2];
+    }
+    let bigint = parseInt(c,16);
+    let r = (bigint >> 16) & 255;
+    let g = (bigint >> 8) & 255;
+    let b = bigint & 255;
+    return [r,g,b,255];
+  }
+
+  // Mouse/touch event handlers ----------------------------------
+
+  let lastPos = null;
+  function pointerDownHandler(e) {
+    e.preventDefault();
+    mouseDown = true;
+    lastPos = getPointerPos(e);
+    drawAtPos(lastPos.x, lastPos.y);
+    renderCanvas();
+  }
+  function pointerMoveHandler(e) {
+    if(!mouseDown) return;
+    e.preventDefault();
+    const pos = getPointerPos(e);
+    drawLine(lastPos.x, lastPos.y, pos.x, pos.y);
+    lastPos = pos;
+    renderCanvas();
+  }
+  function pointerUpHandler(e) {
+    e.preventDefault();
+    mouseDown = false;
+    lastPos = null;
+  }
+  // Bresenham's line algorithm for continuous drawing
+  function drawLine(x0,y0,x1,y1) {
+    const brushSize = parseInt(brushSizeInput.value) || 1;
+    const color = pressingEraser ? 'rgba(0,0,0,0)' : currentColor;
+
+    let dx = Math.abs(x1 - x0);
+    let dy = Math.abs(y1 - y0);
+
+    let sx = (x0 < x1) ? 1 : -1;
+    let sy = (y0 < y1) ? 1 : -1;
+    let err = dx - dy;
+
+    while(true){
+      drawPixel(x0,y0, color, brushSize);
+      if(x0 === x1 && y0 === y1) break;
+      let e2 = 2*err;
+      if(e2 > -dy) { err -= dy; x0 += sx; }
+      if(e2 < dx) { err += dx; y0 += sy; }
+    }
+  }
+  function drawAtPos(x,y) {
+    const brushSize = parseInt(brushSizeInput.value) || 1;
+    const color = pressingEraser ? 'rgba(0,0,0,0)' : currentColor;
+    drawPixel(x,y,color,brushSize);
+  }
+
+  // Eraser toggle on Alt key
+  window.addEventListener('keydown', e => {
+    if(e.altKey) {
+      pressingEraser = true;
+      canvasContainer.style.cursor = 'crosshair';
+    }
+  });
+  window.addEventListener('keyup', e => {
+    if(!e.altKey) {
+      pressingEraser = false;
+      canvasContainer.style.cursor = 'crosshair';
+    }
+  });
+
+  // Setup event listeners
+  canvasContainer.addEventListener('mousedown', pointerDownHandler);
+  canvasContainer.addEventListener('mousemove', pointerMoveHandler);
+  window.addEventListener('mouseup', pointerUpHandler);
+  // Touch:
+  canvasContainer.addEventListener('touchstart', pointerDownHandler);
+  canvasContainer.addEventListener('touchmove', pointerMoveHandler);
+  window.addEventListener('touchend', pointerUpHandler);
+  window.addEventListener('touchcancel', pointerUpHandler);
+
+  // Buttons event handlers --------------------------------------
+
+  addLayerBtn.addEventListener('click', () => {
+    addLayer();
+  });
+
+  addFrameBtn.addEventListener('click', () => {
+    addFrame();
+  });
+
+  clearLayerBtn.addEventListener('click', () => {
+    if(!project.layers[project.currentLayer]) return;
+    if(confirm(`Clear all pixels on layer "${project.layers[project.currentLayer].name}" for frame ${project.currentFrame+1}?`)) {
+      project.layers[project.currentLayer].frames[project.currentFrame] = createBlankFrame();
+      renderCanvas();
+    }
+  });
+
+  // New Project resets everything
+  newProjectBtn.addEventListener('click', () => {
+    if(confirm("Start a new project? Unsaved changes will be lost.")) {
+      project.layers = [];
+      project.framesCount = 1;
+      project.currentLayer = 0;
+      project.currentFrame = 0;
+      addLayer();
+      renderFramesPanel();
+      renderCanvas();
+    }
+  });
+
+  // Save Project (to JSON file)
+  saveProjectBtn.addEventListener('click', () => {
+    let saveObj = {
+      framesCount: project.framesCount,
+      currentLayer: project.currentLayer,
+      currentFrame: project.currentFrame,
+      layers: project.layers.map(layer => ({
+        name: layer.name,
+        opacity: layer.opacity,
+        frames: layer.frames.map(frame => {
+          // Frame ImageData -> Uint8ClampedArray -> base64 string to save
+          return btoa(String.fromCharCode(...frame.data));
+        })
+      })),
+      palette: project.palette
+    };
+    const blob = new Blob([JSON.stringify(saveObj)], {type:"application/json"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = "pixelart_project.json";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  // Load Project from file input
+  loadProjectBtn.addEventListener('click', () => {
+    loadFileInput.click();
+  });
+  loadFileInput.addEventListener('change', e => {
+    if(!loadFileInput.files.length) return;
+    const file = loadFileInput.files[0];
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        let data = JSON.parse(ev.target.result);
+        if(data.framesCount && data.layers && Array.isArray(data.layers)) {
+          project.framesCount = data.framesCount;
+          project.currentFrame = data.currentFrame || 0;
+          project.currentLayer = data.currentLayer || 0;
+          project.palette = data.palette || COLORS;
+          project.layers = data.layers.map(lyr => ({
+            name: lyr.name,
+            opacity: lyr.opacity,
+            frames: lyr.frames.map(b64 => {
+              let raw = atob(b64);
+              let u8arr = new Uint8ClampedArray(raw.length);
+              for(let i=0;i<raw.length;i++) u8arr[i]=raw.charCodeAt(i);
+              return new ImageData(u8arr, LOGICAL_SIZE, LOGICAL_SIZE);
+            })
+          }));
+          createLayerCanvases();
+          renderLayersPanel();
+          renderFramesPanel();
+          renderCanvas();
+          createPalette();
+          updatePaletteSelection();
+        } else {
+          alert('Invalid project file.');
+        }
+      } catch(err) {
+        alert('Failed to load project file: ' + err.message);
+      }
+    };
+    reader.readAsText(file);
+  });
+
+  // Animation play/stop ------------------------------------------
+
+  let animFrameIndex = 0;
+  playBtn.addEventListener('click', () => {
+    if(animationPlaying) return;
+    animationPlaying = true;
+    playBtn.disabled = true;
+    stopBtn.disabled = false;
+    animFrameIndex = 0;
+    const fps = parseInt(fpsInput.value) || 8;
+    animationInterval = setInterval(() => {
+      project.currentFrame = animFrameIndex;
+      renderCanvas();
+      renderFramesPanel();
+      animFrameIndex++;
+      if(animFrameIndex >= project.framesCount) animFrameIndex = 0;
+    }, 1000/fps);
+  });
+
+  stopBtn.addEventListener('click', () => {
+    if(!animationPlaying) return;
+    animationPlaying = false;
+    playBtn.disabled = false;
+    stopBtn.disabled = true;
+    clearInterval(animationInterval);
+  });
+
+  fpsInput.addEventListener('change', () => {
+    if(animationPlaying) {
+      stopBtn.click();
+      playBtn.click();
+    }
+  });
+
+  // Export current frame as PNG ---------------------------------
+  exportPngBtn.addEventListener('click', () => {
+    if(project.layers.length===0) return;
+    let exportCanvas = document.createElement('canvas');
+    exportCanvas.width = LOGICAL_SIZE;
+    exportCanvas.height = LOGICAL_SIZE;
+    let ctx = exportCanvas.getContext('2d');
+    ctx.clearRect(0,0,LOGICAL_SIZE,LOGICAL_SIZE);
+    project.layers.forEach(layer => {
+      ctx.globalAlpha = layer.opacity;
+      ctx.putImageData(layer.frames[project.currentFrame], 0, 0);
+    });
+    ctx.globalAlpha = 1;
+    exportCanvas.toBlob(blob => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `pixelart_frame${project.currentFrame+1}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+  });
+
+  // Export animation as GIF -------------------------------------
+  exportGifBtn.addEventListener('click', async () => {
+    if(project.framesCount < 2) {
+      alert("Add at least 2 frames to export GIF animation.");
+      return;
+    }
+    // Use gif.js library (via CDN)
+    if(typeof GIF === 'undefined') {
+      alert("GIF export requires gif.js library. Waiting to load...");
+      const script = document.createElement('script');
+      script.src = "https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js";
+      script.onload = () => {
+        exportGif();
+      }
+      document.body.appendChild(script);
+    } else {
+      exportGif();
+    }
+
+    function exportGif() {
+      let gif = new GIF({
+        workers: 2,
+        quality: 10,
+        width: LOGICAL_SIZE,
+        height: LOGICAL_SIZE,
+        transparent: "rgba(0,0,0,0)"
+      });
+      for(let f=0; f<project.framesCount; f++) {
+        let tempCanvas = document.createElement('canvas');
+        tempCanvas.width = LOGICAL_SIZE;
+        tempCanvas.height = LOGICAL_SIZE;
+        let ctx = tempCanvas.getContext('2d');
+        ctx.clearRect(0,0,LOGICAL_SIZE,LOGICAL_SIZE);
+        project.layers.forEach(layer => {
+          ctx.globalAlpha = layer.opacity;
+          ctx.putImageData(layer.frames[f],0,0);
+        });
+        ctx.globalAlpha = 1;
+        gif.addFrame(ctx, {delay: 1000/(parseInt(fpsInput.value)||8)});
+      }
+      exportGifBtn.disabled = true;
+      exportGifBtn.textContent = '⏳ Generating GIF...';
+      gif.on('finished', function(blob) {
+        exportGifBtn.disabled = false;
+        exportGifBtn.textContent = '🎞 Export GIF';
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'pixelart_animation.gif';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      });
+      gif.render();
+    }
+  });
+
+  // Initialization ----------------------------------------------
+
+  addLayer();
+  createLayerCanvases();
+  renderLayersPanel();
+  renderFramesPanel();
+  createPalette();
+  updateStatus();
+
+})();
+</script>
+</body>
+</html>
