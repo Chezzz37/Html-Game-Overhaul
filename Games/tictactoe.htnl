@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Neon Tic Tac Toe</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Audiowide&display=swap" rel="stylesheet">
+
+<style>
+*{
+    box-sizing:border-box;
+    font-family:'Audiowide',cursive;
+}
+
+body{
+    margin:0;
+    background:#020412;
+    color:white;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
+}
+
+.screen{
+    display:none;
+    text-align:center;
+}
+
+.active{
+    display:block;
+}
+
+h1{
+    font-size:40px;
+    text-shadow:0 0 20px var(--neon);
+}
+
+button{
+    padding:12px 20px;
+    margin:8px;
+    font-size:16px;
+    background:transparent;
+    border:2px solid var(--neon);
+    color:var(--neon);
+    cursor:pointer;
+    box-shadow:0 0 10px var(--neon);
+}
+
+button:hover{
+    background:var(--neon);
+    color:black;
+}
+
+.board{
+    display:grid;
+    grid-template-columns:repeat(3,100px);
+    gap:10px;
+    justify-content:center;
+    margin-top:20px;
+}
+
+.cell{
+    width:100px;
+    height:100px;
+    border:2px solid var(--neon);
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    font-size:50px;
+    cursor:pointer;
+    box-shadow:0 0 15px var(--neon);
+}
+
+.selected{
+    outline:4px solid var(--neon);
+}
+
+.controller{
+    margin-top:10px;
+    font-size:14px;
+}
+
+select{
+    padding:10px;
+    background:black;
+    color:var(--neon);
+    border:2px solid var(--neon);
+}
+</style>
+</head>
+
+<body>
+
+<!-- HOME -->
+<div id="home" class="screen active">
+<h1>NEON TIC TAC TOE</h1>
+<button onclick="startMenu()">PLAY</button>
+<button onclick="openSettings()">SETTINGS</button>
+</div>
+
+<!-- PLAY MENU -->
+<div id="playMenu" class="screen">
+<h1>SELECT</h1>
+
+<div>
+<button onclick="setPlayer('X')">Play X</button>
+<button onclick="setPlayer('O')">Play O</button>
+</div>
+
+<div>
+<select id="difficulty">
+<option>Very Easy</option>
+<option>Easy</option>
+<option>Medium</option>
+<option>Medium Hard</option>
+<option>Hard</option>
+<option>Insane</option>
+</select>
+</div>
+
+<button onclick="startGame()">START</button>
+<button onclick="backHome()">BACK</button>
+</div>
+
+<!-- GAME -->
+<div id="game" class="screen">
+<h1>TIC TAC TOE</h1>
+
+<div class="controller" id="controllerStatus">
+Controller: Not Connected
+</div>
+
+<div class="board" id="board"></div>
+
+<button onclick="backHome()">QUIT</button>
+</div>
+
+<!-- RESULT -->
+<div id="result" class="screen">
+<h1 id="resultText"></h1>
+<button onclick="backHome()">HOME</button>
+<button onclick="restart()">PLAY AGAIN</button>
+</div>
+
+<!-- SETTINGS -->
+<div id="settings" class="screen">
+<h1>NEON THEME</h1>
+
+<button onclick="setTheme('#00ffff')">CYAN</button>
+<button onclick="setTheme('#ff00ff')">PINK</button>
+<button onclick="setTheme('#00ff00')">GREEN</button>
+<button onclick="setTheme('#ffaa00')">ORANGE</button>
+<button onclick="setTheme('#ff0033')">RED</button>
+
+<br><br>
+<button onclick="backHome()">BACK</button>
+</div>
+
+<script>
+let player="X"
+let ai="O"
+let board=["","","","","","","","",""]
+let current=0
+let gameOver=false
+
+const screens={
+home:document.getElementById("home"),
+playMenu:document.getElementById("playMenu"),
+game:document.getElementById("game"),
+result:document.getElementById("result"),
+settings:document.getElementById("settings")
+}
+
+function show(name){
+for(let s in screens) screens[s].classList.remove("active")
+screens[name].classList.add("active")
+}
+
+function startMenu(){show("playMenu")}
+function openSettings(){show("settings")}
+function backHome(){show("home")}
+function restart(){startGame()}
+
+function setPlayer(p){
+player=p
+ai=p==="X"?"O":"X"
+}
+
+function startGame(){
+board=["","","","","","","","",""]
+gameOver=false
+current=0
+
+show("game")
+drawBoard()
+
+if(player==="O") aiMove()
+}
+
+function drawBoard(){
+const b=document.getElementById("board")
+b.innerHTML=""
+
+board.forEach((v,i)=>{
+let d=document.createElement("div")
+d.className="cell"
+d.innerText=v
+if(i===current) d.classList.add("selected")
+d.onclick=()=>playerMove(i)
+b.appendChild(d)
+})
+}
+
+function playerMove(i){
+if(board[i]||gameOver) return
+board[i]=player
+drawBoard()
+check()
+if(!gameOver) setTimeout(aiMove,200)
+}
+
+function aiMove(){
+let diff=document.getElementById("difficulty").value
+let move
+
+if(diff==="Very Easy") move=randomMove()
+else if(diff==="Easy") move=Math.random()<.5?randomMove():bestMove(1)
+else if(diff==="Medium") move=Math.random()<.3?randomMove():bestMove(2)
+else if(diff==="Medium Hard") move=bestMove(3)
+else if(diff==="Hard") move=bestMove(6)
+else move=bestMove(9)
+
+board[move]=ai
+drawBoard()
+check()
+}
+
+function randomMove(){
+let empty=board.map((v,i)=>v===""?i:null).filter(v=>v!==null)
+return empty[Math.floor(Math.random()*empty.length)]
+}
+
+function bestMove(depth){
+let best=-Infinity
+let move
+
+for(let i=0;i<9;i++){
+if(board[i]===""){
+board[i]=ai
+let score=minimax(board,0,false,depth)
+board[i]=""
+if(score>best){
+best=score
+move=i
+}
+}
+}
+return move
+}
+
+function minimax(b,d,isMax,maxD){
+let res=winner()
+if(res!==null) return res
+
+if(d>=maxD) return 0
+
+if(isMax){
+let best=-Infinity
+for(let i=0;i<9;i++){
+if(b[i]===""){
+b[i]=ai
+best=Math.max(best,minimax(b,d+1,false,maxD))
+b[i]=""
+}
+}
+return best
+}else{
+let best=Infinity
+for(let i=0;i<9;i++){
+if(b[i]===""){
+b[i]=player
+best=Math.min(best,minimax(b,d+1,true,maxD))
+b[i]=""
+}
+}
+return best
+}
+}
+
+function winner(){
+const wins=[
+[0,1,2],[3,4,5],[6,7,8],
+[0,3,6],[1,4,7],[2,5,8],
+[0,4,8],[2,4,6]
+]
+
+for(let w of wins){
+let [a,b,c]=w
+if(board[a]&&board[a]===board[b]&&board[a]===board[c]){
+return board[a]===ai?10:-10
+}
+}
+
+if(board.every(v=>v)) return 0
+return null
+}
+
+function check(){
+let r=winner()
+if(r===null) return
+
+gameOver=true
+
+if(r===10) end("AI WINS")
+else if(r===-10) end("YOU WIN")
+else end("DRAW")
+}
+
+function end(text){
+document.getElementById("resultText").innerText=text
+show("result")
+}
+
+function setTheme(color){
+document.documentElement.style.setProperty("--neon",color)
+}
+
+setTheme("#00ffff")
+
+/* controller */
+
+let controllerConnected=false
+
+window.addEventListener("gamepadconnected",()=>{
+controllerConnected=true
+})
+
+window.addEventListener("gamepaddisconnected",()=>{
+controllerConnected=false
+})
+
+function pollGamepad(){
+let gp=navigator.getGamepads()[0]
+
+document.getElementById("controllerStatus").innerText=
+"Controller: "+(gp?"Connected":"Not Connected")
+
+if(!gp||gameOver) return
+
+let x=gp.axes[0]
+let y=gp.axes[1]
+
+if(Math.abs(x)>.5 || Math.abs(y)>.5){
+let col=current%3
+let row=Math.floor(current/3)
+
+if(x>.5) col=Math.min(2,col+1)
+if(x<-.5) col=Math.max(0,col-1)
+if(y>.5) row=Math.min(2,row+1)
+if(y<-.5) row=Math.max(0,row-1)
+
+current=row*3+col
+drawBoard()
+}
+
+if(gp.buttons[0].pressed){
+playerMove(current)
+}
+}
+
+setInterval(pollGamepad,120)
+</script>
+
+</body>
+</html>
