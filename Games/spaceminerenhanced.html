@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Space Miner - Enhanced</title>
+<style>
+  body {
+    background: radial-gradient(ellipse at center, #000011 0%, #000000 100%);
+    color: #eee;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0; padding: 0;
+  }
+  header {
+    background: #111122;
+    padding: 1rem;
+    text-align: center;
+    font-size: 1.8rem;
+    font-weight: bold;
+    letter-spacing: 2px;
+  }
+  #game {
+    max-width: 800px;
+    margin: 1rem auto;
+    background: #111122dd;
+    border-radius: 8px;
+    padding: 1rem;
+  }
+  #resources, #actions, #asteroids {
+    margin-bottom: 1rem;
+  }
+  #resources div {
+    display: inline-block;
+    width: 140px;
+    margin-right: 1rem;
+    background: #222244;
+    border-radius: 6px;
+    padding: 0.5rem;
+    position: relative;
+  }
+  #resources div .bar-bg {
+    background: #222233;
+    height: 10px;
+    border-radius: 5px;
+    margin-top: 4px;
+    overflow: hidden;
+  }
+  #resources div .bar-fill {
+    height: 10px;
+    border-radius: 5px;
+  }
+  #resources div.ore .bar-fill {background: #8888aa;}
+  #resources div.minerals .bar-fill {background: #ccaa55;}
+  #resources div.crystals .bar-fill {background: #77ccff;}
+  #resources div.energy .bar-fill {background: #55ff55;}
+  #resources div.credits .bar-fill {background: #ffaa33;}
+  button {
+    background: #444477;
+    border: none;
+    color: #eee;
+    padding: 0.5rem 1rem;
+    margin: 0.3rem;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+    position: relative;
+  }
+  button:hover:not(:disabled) {
+    background: #6688ff;
+  }
+  button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  #messages {
+    min-height: 70px;
+    background: #222233;
+    padding: 0.5rem;
+    border-radius: 5px;
+    overflow-y: auto;
+    max-height: 140px;
+    font-size: 0.9rem;
+  }
+  #empire {
+    background: #222233;
+    padding: 0.5rem;
+    border-radius: 5px;
+  }
+  [title] {
+    cursor: help;
+    border-bottom: 1px dotted #888;
+  }
+</style>
+</head>
+<body>
+<header>Space Miner - Strategy Game</header>
+<div id="game">
+  <div id="resources">
+    <div class="ore" title="Basic raw material"><b>Ore:</b> <span id="ore">0</span>
+      <div class="bar-bg"><div id="oreBar" class="bar-fill" style="width:0%"></div></div>
+    </div>
+    <div class="minerals" title="Refined minerals from ore"><b>Minerals:</b> <span id="minerals">0</span>
+      <div class="bar-bg"><div id="mineralsBar" class="bar-fill" style="width:0%"></div></div>
+    </div>
+    <div class="crystals" title="Rare resource mined from Crystal Mines"><b>Crystals:</b> <span id="crystals">0</span>
+      <div class="bar-bg"><div id="crystalsBar" class="bar-fill" style="width:0%"></div></div>
+    </div>
+    <div class="energy" title="Used to mine asteroids and run miners"><b>Energy:</b> <span id="energy">10</span>
+      <div class="bar-bg"><div id="energyBar" class="bar-fill" style="width:0%"></div></div>
+    </div>
+    <div class="credits" title="Currency to buy upgrades and buildings"><b>Credits:</b> <span id="credits">100</span>
+      <div class="bar-bg"><div id="creditsBar" class="bar-fill" style="width:0%"></div></div>
+    </div>
+  </div>
+  <div id="actions">
+    <button id="mineBtn" title="Mine an asteroid (consumes energy)">Mine Asteroid</button>
+    <button id="buildBtn" title="Build a miner to increase energy generation (+5 Energy) - 50 Credits" disabled>Build Miner (+5 Energy)</button>
+    <button id="upgradeMinerBtn" title="Upgrade all miners (double energy generation) - 100 Credits" disabled>Upgrade Miners (x2 Efficiency)</button>
+    <button id="sellBtn" title="Sell 1 mineral for 10 credits" disabled>Sell Minerals (+10 Credits)</button>
+    <button id="buildCrystalBtn" title="Build a Crystal Mine (passive crystal income) - 150 Credits" disabled>Build Crystal Mine (+1 Crystal/5s)</button>
+    <button id="sellCrystalBtn" title="Sell 1 crystal for 50 credits" disabled>Sell Crystals (+50 Credits)</button>
+  </div>
+  <div id="asteroids">
+    <h3>Asteroids Available (Energy cost increases over time):</h3>
+    <div id="asteroidList"></div>
+  </div>
+  <div id="empire">
+    <h3>Your Empire</h3>
+    <p>Miners Active: <span id="minersCount">0</span></p>
+    <p>Miners Upgraded: <span id="minersUpgraded">No</span></p>
+    <p>Crystal Mines: <span id="crystalMinesCount">0</span></p>
+  </div>
+  <div id="messages"></div>
+</div>
+<script>
+(() => {
+  // State Variables
+  let ore = 0;
+  let minerals = 0;
+  let crystals = 0;
+  let energy = 10;
+  let credits = 100;
+  let miners = 0;
+  let minersUpgraded = false;
+  let crystalMines = 0;
+
+  const asteroidBaseTypes = [
+    { name: "Common Iron", oreYield: 10, mineralYield: 2, energyCost: 3, rarity: 'common' },
+    { name: "Uncommon Gold", oreYield: 5, mineralYield: 10, energyCost: 5, rarity: 'uncommon' },
+    { name: "Rare Ice", oreYield: 5, mineralYield: 0, energyCost: 2, rarity: 'rare' },
+    { name: "Rare Platinum", oreYield: 3, mineralYield: 3, energyCost: 6, rarity: 'rare' }
+  ];
+  let asteroids = [];
+
+  // Difficulty modifier increases asteroid energy cost over time
+  let difficultyModifier = 1;
+
+  // Cached DOM elements
+  const oreEl = document.getElementById("ore");
+  const mineralsEl = document.getElementById("minerals");
+  const crystalsEl = document.getElementById("crystals");
+  const energyEl = document.getElementById("energy");
+  const creditsEl = document.getElementById("credits");
+  const minersCountEl = document.getElementById("minersCount");
+  const crystalMinesCountEl = document.getElementById("crystalMinesCount");
+  const minersUpgradedEl = document.getElementById("minersUpgraded");
+  const asteroidListEl = document.getElementById("asteroidList");
+
+  const oreBar = document.getElementById("oreBar");
+  const mineralsBar = document.getElementById("mineralsBar");
+  const crystalsBar = document.getElementById("crystalsBar");
+  const energyBar = document.getElementById("energyBar");
+  const creditsBar = document.getElementById("creditsBar");
+
+  const mineBtn = document.getElementById("mineBtn");
+  const buildBtn = document.getElementById("buildBtn");
+  const upgradeMinerBtn = document.getElementById("upgradeMinerBtn");
+  const sellBtn = document.getElementById("sellBtn");
+  const buildCrystalBtn = document.getElementById("buildCrystalBtn");
+  const sellCrystalBtn = document.getElementById("sellCrystalBtn");
+  
+  const messagesEl = document.getElementById("messages");
+
+  // Sound beep helper
+  function beep(freq=440, duration=100) {
+    if(!window.AudioContext) return;
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(freq, ctx.currentTime);
+    osc.connect(ctx.destination);
+    osc.start();
+    setTimeout(() => {
+      osc.stop();
+      ctx.close();
+    }, duration);
+  }
+
+  // Log message with timestamp
+  function logMessage(msg) {
+    const p = document.createElement("p");
+    const t = new Date().toLocaleTimeString();
+    p.textContent = `[${t}] ${msg}`;
+    messagesEl.appendChild(p);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  // Save and load game state
+  function saveGame() {
+    const state = {
+      ore, minerals, crystals, energy, credits,
+      miners, minersUpgraded, crystalMines,
+      difficultyModifier, asteroids,
+    };
+    localStorage.setItem("spaceMinerSave", JSON.stringify(state));
+  }
+  function loadGame() {
+    const saved = localStorage.getItem("spaceMinerSave");
+    if(saved) {
+      try {
+        const state = JSON.parse(saved);
+        ore = state.ore || 0;
+        minerals = state.minerals || 0;
+        crystals = state.crystals || 0;
+        energy = state.energy || 10;
+        credits = state.credits || 100;
+        miners = state.miners || 0;
+        minersUpgraded = state.minersUpgraded || false;
+        crystalMines = state.crystalMines || 0;
+        difficultyModifier = state.difficultyModifier || 1;
+        asteroids = state.asteroids || [];
+        logMessage("Game loaded!");
+      } catch(e) {
+        logMessage("Failed to load saved game.");
+      }
+    }
+  }
+
+  // Update UI bars width relative to some max thresholds for visual feedback
+  function updateBars(){
+    oreBar.style.width = Math.min(ore/1000*100,100) + "%";
+    mineralsBar.style.width = Math.min(minerals/500*100,100) + "%";
+    crystalsBar.style.width = Math.min(crystals/200*100,100) + "%";
+    energyBar.style.width = Math.min(energy/100*100,100) + "%";
+    creditsBar.style.width = Math.min(credits/1000*100,100) + "%";
+  }
+
+  function updateDisplay() {
+    oreEl.textContent = ore;
+    mineralsEl.textContent = minerals;
+    crystalsEl.textContent = crystals;
+    energyEl.textContent = energy;
+    creditsEl.textContent = credits;
+    minersCountEl.textContent = miners;
+    crystalMinesCountEl.textContent = crystalMines;
+    minersUpgradedEl.textContent = minersUpgraded ? "Yes" : "No";
+
+    buildBtn.disabled = credits < 50;
+    upgradeMinerBtn.disabled = credits < 100 || miners === 0 || minersUpgraded;
+    buildCrystalBtn.disabled = credits < 150;
+    sellBtn.disabled = minerals === 0;
+    sellCrystalBtn.disabled = crystals === 0;
+    mineBtn.disabled = energy < 2 || asteroids.length === 0;
+
+    updateBars();
+
+    saveGame(); // autosave on each update
+  }
+
+  // Generate a random asteroid with variable rarity weighted chances
+  function generateAsteroid() {
+    // Weights by rarity: common: 60%, uncommon 30%, rare 10%
+    const rand = Math.random();
+    let pool = [];
+    if(rand < 0.6) pool = asteroidBaseTypes.filter(a => a.rarity === 'common');
+    else if(rand < 0.9) pool = asteroidBaseTypes.filter(a => a.rarity === 'uncommon');
+    else pool = asteroidBaseTypes.filter(a => a.rarity === 'rare');
+
+    const base = pool[Math.floor(Math.random()*pool.length)];
+
+    // Increase energy cost with difficulty modifier (round up)
+    const adjustedEnergyCost = Math.max(1, Math.ceil(base.energyCost * difficultyModifier));
+
+    return {
+      id: Date.now() + Math.random(),
+      type: base.name,
+      oreYield: base.oreYield,
+      mineralYield: base.mineralYield,
+      energyCost: adjustedEnergyCost,
+      rarity: base.rarity,
+    };
+  }
+
+  function refreshAsteroids() {
+    while (asteroids.length < 3) {
+      asteroids.push(generateAsteroid());
+    }
+    drawAsteroids();
+  }
+
+  function drawAsteroids() {
+    asteroidListEl.innerHTML = "";
+    asteroids.forEach(a => {
+      const div = document.createElement("div");
+      div.style.background = a.rarity === 'rare' ? "#335577" : (a.rarity === 'uncommon' ? "#334466" : "#222244");
+      div.style.borderRadius = "4px";
+      div.style.marginBottom = "5px";
+      div.style.padding = "5px";
+      div.title = `Energy Cost: ${a.energyCost}\nOre: ${a.oreYield}\nMinerals: ${a.mineralYield}\nRarity: ${a.rarity}`;
+      div.textContent = `${a.type} Asteroid - Costs ${a.energyCost} Energy | Ore: ${a.oreYield}, Minerals: ${a.mineralYield}`;
+      asteroidListEl.appendChild(div);
+    });
+  }
+
+  // Mining chance with failure and bonus yields
+  function mineAsteroid() {
+    if(asteroids.length === 0) {
+      logMessage("No asteroids available to mine.");
+      return;
+    }
+    const asteroid = asteroids.shift();
+
+    if(energy < asteroid.energyCost) {
+      logMessage("Not enough energy to mine this asteroid.");
+      asteroids.unshift(asteroid);
+      return;
+    }
+
+    // 10% chance to fail (lose energy but no yield)
+    if(Math.random() < 0.1) {
+      energy -= asteroid.energyCost;
+      logMessage(`Mining failed on ${asteroid.type} asteroid! Lost ${asteroid.energyCost} energy.`);
+      refreshAsteroids();
+      updateDisplay();
+      beep(220, 150);
+      return;
+    }
+
+    energy -= asteroid.energyCost;
+
+    // Yield: normal yield + bonus 0 to 50%
+    const bonusOre = Math.floor(asteroid.oreYield * (Math.random() * 0.5));
+    const bonusMinerals = Math.floor(asteroid.mineralYield * (Math.random() * 0.5));
+
+    ore += asteroid.oreYield + bonusOre;
+    minerals += asteroid.mineralYield + bonusMinerals;
+
+    logMessage(`Mined ${asteroid.type} asteroid: +${asteroid.oreYield + bonusOre} Ore, +${asteroid.mineralYield + bonusMinerals} Minerals, -${asteroid.energyCost} Energy.`);
+    beep(440, 120);
+
+    // Increase difficulty slightly with each successful mine
+    difficultyModifier += 0.01;
+
+    refreshAsteroids();
+    updateDisplay();
+  }
+
+  // Build Miner: costs 50 credits, +5 energy
+  function buildMiner() {
+    if(credits < 50) {
+      logMessage("Not enough credits to build a miner.");
+      return;
+    }
+    credits -= 50;
+    energy += 5;
+    miners++;
+    logMessage("Built a new miner! +5 Energy.");
+    beep(660, 120);
+    updateDisplay();
+  }
+
+  // Upgrade miners: double efficiency of energy generation
+  function upgradeMiners() {
+    if(minersUpgraded) {
+      logMessage("Miners already upgraded.");
+      return;
+    }
+    if(miners === 0) {
+      logMessage("No miners to upgrade.");
+      return;
+    }
+    if(credits < 100) {
+      logMessage("Not enough credits to upgrade miners.");
+      return;
+    }
+    credits -= 100;
+    minersUpgraded = true;
+    logMessage("Miners upgraded! Energy generation doubled.");
+    beep(880, 120);
+    updateDisplay();
+  }
+
+  // Sell minerals: 1 mineral = 10 credits
+  function sellMineral() {
+    if(minerals === 0) {
+      logMessage("No minerals to sell.");
+      return;
+    }
+    minerals--;
+    credits += 10;
+    logMessage("Sold 1 mineral for 10 credits.");
+    beep(550, 90);
+    updateDisplay();
+  }
+
+  // Build Crystal Mine: costs 150 credits, +1 crystal every 5 sec
+  function buildCrystalMine() {
+    if(credits < 150) {
+      logMessage("Not enough credits to build a Crystal Mine.");
+      return;
+    }
+    credits -= 150;
+    crystalMines++;
+    logMessage("Built a Crystal Mine! +1 Crystal every 5 seconds.");
+    beep(770, 140);
+    updateDisplay();
+  }
+
+  // Sell crystals: 1 crystal = 50 credits
+  function sellCrystal() {
+    if(crystals === 0) {
+      logMessage("No crystals to sell.");
+      return;
+    }
+    crystals--;
+    credits += 50;
+    logMessage("Sold 1 crystal for 50 credits.");
+    beep(770, 90);
+    updateDisplay();
+  }
+
+  // Auto miner energy generation every 5 seconds
+  function autoMinerGenerateEnergy() {
+    if(miners > 0) {
+      let baseEnergy = 1 * miners;
+      if(minersUpgraded) baseEnergy *= 2;
+      energy += baseEnergy;
+      logMessage(`Miners generated ${baseEnergy} energy.`);
+      updateDisplay();
+    }
+  }
+
+  // Passive crystal generation from Crystal Mines every 5 sec
+  function autoCrystalGenerate() {
+    if(crystalMines > 0) {
+      crystals += crystalMines;
+      logMessage(`Crystal Mines produced ${crystalMines} crystals.`);
+      updateDisplay();
+    }
+  }
+
+  // Slow energy regeneration every 3 sec (+1 energy)
+  function passiveEnergyRegen() {
+    energy++;
+    updateDisplay();
+  }
+
+  // Event Listeners
+  mineBtn.onclick = mineAsteroid;
+  buildBtn.onclick = buildMiner;
+  upgradeMinerBtn.onclick = upgradeMiners;
+  sellBtn.onclick = sellMineral;
+  buildCrystalBtn.onclick = buildCrystalMine;
+  sellCrystalBtn.onclick = sellCrystal;
+
+  // Initialization
+  loadGame();
+  refreshAsteroids();
+  updateDisplay();
+  logMessage("Welcome back! Continue building your space empire.");
+
+  // Timers
+  setInterval(() => {
+    autoMinerGenerateEnergy();
+  }, 5000);
+
+  setInterval(() => {
+    autoCrystalGenerate();
+  }, 5000);
+
+  setInterval(() => {
+    passiveEnergyRegen();
+  }, 3000);
+
+  // Increase difficulty slowly every 15 seconds
+  setInterval(() => {
+    difficultyModifier += 0.05;
+    logMessage("Asteroid difficulty increased! Energy costs rising.");
+    refreshAsteroids();
+  }, 15000);
+
+  // Save game every 15 seconds
+  setInterval(() => saveGame(), 15000);
+
+})();
+</script>
+
+</body>
+</html>
