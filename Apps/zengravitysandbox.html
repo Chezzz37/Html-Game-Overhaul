@@ -8,68 +8,196 @@
       margin: 0;
       padding: 20px;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: #f0f4f8;
+      background: linear-gradient(135deg, #c3dafe 0%, #e0e7ff 100%);
       user-select: none;
       display: flex;
       flex-direction: column;
       align-items: center;
+      justify-content: center;
       height: 100vh;
       overflow: hidden;
+      color: #334155;
     }
 
     h1.title {
-      color: #5c6ac4;
+      color: #4f46e5;
       margin: 0 0 8px 0;
       text-align: center;
       user-select: none;
+      font-weight: 700;
+      text-shadow: 0 1px 3px rgba(79,70,229,0.6);
+      letter-spacing: 1px;
     }
 
     p.description {
       text-align: center;
-      color: #666;
+      color: #475569;
       margin: 0 0 18px 0;
       font-style: italic;
       user-select: none;
+      max-width: 420px;
+      font-weight: 500;
     }
 
-    #sandbox {
-      display: block;
-      border-radius: 10px;
-      box-shadow: 0 0 25px #bcc9f4;
+    /* Container around canvas to scale down all balls */
+    .canvas-container {
+      width: 800px;
+      height: 600px;
+      overflow: visible;
+      margin-top: 12px;
+      cursor: pointer;
+      border-radius: 12px;
+      box-shadow:
+        0 6px 18px rgba(92,106,196,0.4),
+        inset 0 0 25px #bcc9f4;
       background: #e0e7ff;
       filter:
         drop-shadow(0 0 6px rgba(92,106,196,0.25))
         drop-shadow(0 0 10px rgba(92,106,196,0.15));
+      transition: box-shadow 0.3s ease;
+      /* Zoom out scale */
+      transform: scale(0.75);
+      transform-origin: center center;
+    }
+    .canvas-container:hover {
+      box-shadow:
+        0 8px 28px rgba(79,70,229,0.6),
+        inset 0 0 40px #a3bffa;
+    }
+
+    #sandbox {
+      display: block;
+      border-radius: 12px;
+      width: 100%;
+      height: 100%;
+      user-select:none;
       touch-action: none;
     }
 
     .controls {
-      margin: 12px 0 20px;
+      margin: 12px 0 4px;
       display: flex;
       gap: 12px;
       user-select: none;
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: 900px;
     }
 
-    button {
-      background-color: #5c6ac4;
+    button, label {
+      background-color: #4f46e5;
       color: white;
       border: none;
       padding: 8px 18px;
-      border-radius: 6px;
+      border-radius: 8px;
       font-size: 14px;
       cursor: pointer;
       transition: background-color 0.3s ease;
-      box-shadow: 0 3px 6px rgba(92,106,196,0.5);
+      box-shadow: 0 3px 6px rgba(79,70,229,0.5);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+      user-select: none;
     }
 
-    button:hover {
-      background-color: #4b579e;
+    button:hover, label:hover {
+      background-color: #3730a3;
+    }
+
+    #info {
+      margin-top: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #334155;
+      user-select: none;
+    }
+
+    .slider-container {
+      background: white;
+      padding: 8px 16px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      height: 40px;
+    }
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100px;
+      height: 6px;
+      border-radius: 3px;
+      background: #cbd5e1;
+      cursor: pointer;
+      box-shadow: inset 0 0 3px #a5b4fc;
+      transition: background-color 0.3s ease;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #4f46e5;
+      cursor: pointer;
+      box-shadow: 0 0 5px #4338ca;
+      margin-top: -6px;
+      transition: background-color 0.3s ease;
+    }
+    input[type="range"]:hover::-webkit-slider-thumb {
+      background-color: #3730a3;
+    }
+
+    .color-palette {
+      display: flex;
+      gap: 10px;
+      user-select: none;
+      margin-left: 6px;
+      flex-wrap: wrap;
+      align-items: center;
+      max-width: 200px;
+    }
+    .color-swatch {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      box-shadow: 0 0 3px rgba(0,0,0,0.2);
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: border-color 0.3s ease;
+    }
+    .color-swatch.selected {
+      border-color: #4f46e5;
+      box-shadow: 0 0 7px #4338ca;
     }
 
     @media (max-width: 600px) {
-      #sandbox {
-        width: 90vw !important;
-        height: 60vh !important;
+      .canvas-container {
+        width: 90vw;
+        height: 60vh;
+        transform: scale(0.75);
+      }
+
+      .controls {
+        gap: 8px;
+      }
+      button, label {
+        font-size: 13px;
+        padding: 7px 14px;
+      }
+      .slider-container {
+        height: 36px;
+        padding: 6px 12px;
+      }
+      input[type="range"] {
+        width: 90px;
+        height: 5px;
+      }
+      input[type="range"]::-webkit-slider-thumb {
+        width: 16px;
+        height: 16px;
+        margin-top: -5.5px;
       }
     }
   </style>
@@ -80,11 +208,29 @@
     Click canvas to add balls.</p>
 
   <div class="controls">
-    <button id="gravityToggle">Toggle Gravity</button>
-    <button id="resetSandbox">Reset Sandbox</button>
+    <button id="gravityToggle" title="Toggle gravity">Disable Gravity</button>
+    <button id="resetSandbox" title="Reset balls">Reset Sandbox</button>
+
+    <label for="gravityRange" title="Adjust gravity strength" style="background:#6c757d; cursor: default; user-select:none;">
+      Gravity:
+    </label>
+    <div class="slider-container" title="Adjust gravity strength">
+      <input type="range" id="gravityRange" min="0" max="2" step="0.01" value="0.5" />
+    </div>
+
+    <button id="shadowToggle" title="Toggle ball shadows" style="background:#2563eb;">Shadows On</button>
+
+    <label style="background:#2563eb; cursor: default; padding: 8px 10px; margin-left: auto; font-weight: 700; user-select:none;">Choose Color:</label>
+    <div class="color-palette" aria-label="Choose ball color">
+      <!-- Colors injected by JS -->
+    </div>
   </div>
 
-  <canvas id="sandbox"></canvas>
+  <div id="info">Balls: 0</div>
+
+  <div class="canvas-container">
+    <canvas id="sandbox"></canvas>
+  </div>
 
   <!-- Matter.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/matter-js@0.19.0/build/matter.min.js"></script>
@@ -103,7 +249,6 @@
 
     // Responsive canvas sizing function
     function resize() {
-      // Use 90% viewport width or max 800, and 70% viewport height or max 600
       width = Math.min(window.innerWidth * 0.9, 800);
       height = Math.min(window.innerHeight * 0.7, 600);
 
@@ -138,10 +283,8 @@
     // Walls container for resizing
     let walls = [];
 
-    // Create static boundary walls
     function createWalls() {
       const thickness = 60;
-      // Remove old walls
       if (walls.length) {
         World.remove(world, walls);
       }
@@ -154,25 +297,37 @@
       World.add(world, walls);
     }
 
-    // Function to create ball bodies with random color & radius
+    // Shadows toggle setting
+    let shadowsEnabled = true;
+
+    // Function to create ball bodies with random or chosen color & radius
+    let chosenColor = null;
     function createBall(x, y) {
       const radius = 20 + Math.random() * 20;
-      const color = `hsl(${Math.random() * 360}, 70%, 70%)`;
+      let color;
+      if (chosenColor) {
+        color = chosenColor;
+      } else {
+        color = `hsl(${Math.random() * 360}, 70%, 70%)`;
+      }
+      let style = {
+        fillStyle: color,
+        strokeStyle: '#fff',
+        lineWidth: 2
+      };
+      if (shadowsEnabled) {
+        style.shadowColor = 'rgba(0,0,0,0.25)';
+        style.shadowBlur = 10;
+      }
       return Bodies.circle(x, y, radius, {
         restitution: 0.8,
         frictionAir: 0.02,
-        render: {
-          fillStyle: color,
-          strokeStyle: '#fff',
-          lineWidth: 2,
-        },
+        render: style,
       });
     }
 
-    // Initial balls array for management
     let balls = [];
 
-    // Add initial balls at start
     function addInitialBalls(count = 12) {
       for (let i = 0; i < count; i++) {
         const ball = createBall(
@@ -182,18 +337,25 @@
         balls.push(ball);
         World.add(world, ball);
       }
+      updateBallCount();
     }
 
-    // Remove all balls from the world and array
     function clearBalls() {
       World.remove(world, balls);
       balls = [];
+      updateBallCount();
     }
 
-    // Setup mouse control for drag & drop
+    // Update ball count display
+    const info = document.getElementById('info');
+    function updateBallCount() {
+      info.textContent = `Balls: ${balls.length}`;
+    }
+
+    // Mouse control for drag & drop
     const mouse = Mouse.create(canvas);
     const mouseConstraint = MouseConstraint.create(engine, {
-      mouse: mouse,
+      mouse,
       constraint: {
         stiffness: 0.2,
         render: { visible: false }
@@ -202,9 +364,11 @@
     World.add(world, mouseConstraint);
     render.mouse = mouse;
 
-    // Add ball on canvas click if max ball limit not exceeded
     canvas.addEventListener('mousedown', event => {
       if (balls.length >= MAX_BALLS) return;
+
+      // To avoid adding ball if dragging existing one:
+      if (mouseConstraint.body) return;
 
       const rect = canvas.getBoundingClientRect();
       const x = event.clientX - rect.left;
@@ -213,12 +377,14 @@
       const ball = createBall(x, y);
       balls.push(ball);
       World.add(world, ball);
+
+      updateBallCount();
     });
 
     // Gravity toggle button
     const gravityToggle = document.getElementById('gravityToggle');
     gravityToggle.addEventListener('click', () => {
-      engine.gravity.y = engine.gravity.y === 0 ? 0.5 : 0;
+      engine.gravity.y = engine.gravity.y === 0 ? gravityRange.value : 0;
       gravityToggle.textContent = engine.gravity.y === 0 ? 'Enable Gravity' : 'Disable Gravity';
     });
 
@@ -228,6 +394,55 @@
       clearBalls();
       addInitialBalls(12);
     });
+
+    // Gravity strength slider
+    const gravityRange = document.getElementById('gravityRange');
+    gravityRange.addEventListener('input', () => {
+      if (engine.gravity.y !== 0) {
+        engine.gravity.y = parseFloat(gravityRange.value);
+      }
+    });
+
+    // Shadows toggle button
+    const shadowToggle = document.getElementById('shadowToggle');
+    shadowToggle.addEventListener('click', () => {
+      shadowsEnabled = !shadowsEnabled;
+      shadowToggle.textContent = shadowsEnabled ? 'Shadows On' : 'Shadows Off';
+      shadowToggle.style.backgroundColor = shadowsEnabled ? '#2563eb' : '#6b7280';
+      // Reapply styles to existing balls
+      balls.forEach(b => {
+        b.render.shadowColor = shadowsEnabled ? 'rgba(0,0,0,0.25)' : null;
+        b.render.shadowBlur = shadowsEnabled ? 10 : 0;
+      });
+    });
+
+    // Color palette setup
+    const paletteColors = [
+      '#2563eb', // Indigo
+      '#ef4444', // Red
+      '#f59e0b', // Amber
+      '#10b981', // Emerald
+      '#8b5cf6', // Violet
+      '#ec4899', // Pink
+      '#3b82f6', // Blue
+      '#16a34a', // Green
+    ];
+    const paletteContainer = document.querySelector('.color-palette');
+    function createColorSwatch(color) {
+      const swatch = document.createElement('div');
+      swatch.className = 'color-swatch';
+      swatch.style.backgroundColor = color;
+      swatch.title = `Select color ${color}`;
+      swatch.addEventListener('click', () => {
+        chosenColor = chosenColor === color ? null : color;
+        document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+        if (chosenColor) {
+          swatch.classList.add('selected');
+        }
+      });
+      return swatch;
+    }
+    paletteColors.forEach(c => paletteContainer.appendChild(createColorSwatch(c)));
 
     // Initial setup and resize event
     function setup() {
