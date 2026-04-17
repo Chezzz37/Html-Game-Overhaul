@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ganon Clicker</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron&display=swap');
+
+body {
+  margin: 0;
+  background: #7b2ff7;  /* electric purple */
+  background: linear-gradient(135deg, #7b2ff7, #f107a3);
+  font-family: 'Orbitron', sans-serif;
+  color: #eee;
+  display: flex;
+  justify-content: center;
+  padding: 20px;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
+.container {
+  max-width: 900px;
+  width: 100%;
+  background: rgba(0,0,0,0.4);
+  border-radius: 15px;
+  padding: 20px;
+  box-shadow: 0 0 20px #f107a3;
+}
+
+h1, h2 {
+  text-align: center;
+  letter-spacing: 2px;
+  margin-bottom: 15px;
+  text-shadow: 0 0 10px #f107a3;
+}
+
+#clicker-section {
+  text-align: center;
+  margin-bottom: 30px;
+  user-select: none;
+}
+
+#clicker-img {
+  width: 200px;
+  height: 200px;
+  cursor: pointer;
+  border-radius: 50%;
+  box-shadow: 0 0 30px #f107a3;
+  transition: transform 0.1s ease;
+}
+
+#clicker-img:active {
+  transform: scale(0.95);
+  box-shadow: 0 0 40px #7b2ff7;
+}
+
+#click-count, #cps {
+  font-size: 1.5rem;
+  margin-top: 10px;
+  text-shadow: 0 0 15px #7b2ff7;
+  letter-spacing: 1.2px;
+}
+
+#upgrades {
+  display: grid;
+  grid-template-columns: repeat(auto-fill,minmax(160px,1fr));
+  gap: 15px;
+  max-height: 500px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.upgrade {
+  background: #35096dcc;
+  border-radius: 10px;
+  padding: 10px;
+  cursor: pointer;
+  box-shadow: 0 0 10px #f107a3;
+  transition: background 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.upgrade:hover:not(.disabled) {
+  background: #7b2ff7cc;
+  box-shadow: 0 0 15px #f107a3;
+}
+
+.upgrade.disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.upgrade .name {
+  font-weight: 700;
+  text-shadow: 0 0 8px #f107a3;
+  margin-bottom: 6px;
+  font-size: 1rem;
+}
+
+.upgrade .desc {
+  font-size: 0.85rem;
+  margin-bottom: 6px;
+  color: #d9c1e9;
+}
+
+.upgrade .price {
+  font-weight: 600;
+  color: #f107a3;
+  text-align: right;
+  text-shadow: 0 0 6px #f107a3;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #f107a3;
+  border-radius: 3px;
+}
+
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Ganon Clicker</h1>
+    <div id="clicker-section">
+      <img id="clicker-img" src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRemXxOIUq7hmAZ-srKUKiSpX2zNk18e_dULnR55AyZUb8FFKZaA6V3gd8&s" alt="Ganon" />
+      <div id="click-count">Clicks: 0</div>
+      <div id="cps">Clicks per second: 0</div>
+    </div>
+
+    <h2>Upgrades</h2>
+    <div id="upgrades"></div>
+  </div>
+
+  <script>
+    // Game State
+let clicks = 0;
+let cps = 0;
+const upgradesBought = new Array(268).fill(0);
+
+// Base click increment per click
+const baseClick = 1;
+
+// Upgrade definitions (268 upgrades)
+const upgrades = [];
+
+for (let i = 1; i <= 268; i++) {
+  upgrades.push({
+    id: i,
+    name: `Upgrade ${i}`,
+    desc: `Adds +${i} clicks per second`,
+    price: Math.floor(10 * (1.1143 ** (i - 1))),
+    cpsIncrease: i,
+    count: 0,
+  });
+}
+
+const clickCountElem = document.getElementById('click-count');
+const cpsElem = document.getElementById('cps');
+const upgradesElem = document.getElementById('upgrades');
+const clickerImg = document.getElementById('clicker-img');
+
+function updateUI() {
+  clickCountElem.textContent = `Clicks: ${Math.floor(clicks)}`;
+  cpsElem.textContent = `Clicks per second: ${cps.toFixed(1)}`;
+  upgrades.forEach(upgrade => {
+    const upgradeElem = document.getElementById(`upgrade-${upgrade.id}`);
+    if (!upgradeElem) return;
+    const affordable = clicks >= upgrade.price;
+    upgradeElem.classList.toggle('disabled', !affordable);
+    upgradeElem.querySelector('.price').textContent = `Price: ${upgrade.price}`;
+    upgradeElem.querySelector('.desc').textContent = `Adds +${upgrade.cpsIncrease} CPS. Owned: ${upgrade.count}`;
+  });
+}
+
+// Click event on the main image
+clickerImg.onclick = () => {
+  clicks += baseClick;
+  updateUI();
+};
+
+// Build UI upgrades list
+function buildUpgradesUI() {
+  upgradesElem.innerHTML = '';
+  upgrades.forEach(upg => {
+    const div = document.createElement('div');
+    div.className = 'upgrade';
+    div.id = `upgrade-${upg.id}`;
+    div.innerHTML = `
+      <div class="name">${upg.name}</div>
+      <div class="desc">Adds +${upg.cpsIncrease} CPS. Owned: 0</div>
+      <div class="price">Price: ${upg.price}</div>
+    `;
+
+    // Buy upgrade on click
+    div.onclick = () => {
+      if (clicks >= upg.price) {
+        clicks -= upg.price;
+        upg.count++;
+        // Upgrade price grows exponentially after purchase
+        upg.price = Math.floor(upg.price * 1.15);
+        recalcCPS();
+        updateUI();
+      }
+    };
+
+    upgradesElem.appendChild(div);
+  });
+}
+
+function recalcCPS() {
+  cps = 0;
+  upgrades.forEach(u => {
+    cps += u.cpsIncrease * u.count;
+  });
+}
+
+function cpsLoop() {
+  clicks += cps / 10; // Update 10 times per second for smooth increment
+  updateUI();
+}
+
+// Initialize game UI
+buildUpgradesUI();
+updateUI();
+
+setInterval(cpsLoop, 100); // CPS tick every 100ms
+
+  </script>
+</body>
+</html>
