@@ -142,19 +142,15 @@ h1, h2 {
     // Game State
 let clicks = 0;
 let cps = 0;
-const upgradesBought = new Array(268).fill(0);
 
-// Base click increment per click
-const baseClick = 1;
-
-// Upgrade definitions (268 upgrades)
+// Upgrade definitions
 const upgrades = [];
-
 for (let i = 1; i <= 268; i++) {
   upgrades.push({
     id: i,
     name: `Upgrade ${i}`,
     desc: `Adds +${i} clicks per second`,
+    basePrice: Math.floor(10 * (1.1143 ** (i - 1))),
     price: Math.floor(10 * (1.1143 ** (i - 1))),
     cpsIncrease: i,
     count: 0,
@@ -165,6 +161,39 @@ const clickCountElem = document.getElementById('click-count');
 const cpsElem = document.getElementById('cps');
 const upgradesElem = document.getElementById('upgrades');
 const clickerImg = document.getElementById('clicker-img');
+
+// --- SAVE & LOAD LOGIC ---
+
+function saveGame() {
+  const gameState = {
+    clicks: clicks,
+    // We only need to save the count of each upgrade owned
+    upgradeCounts: upgrades.map(u => u.count)
+  };
+  localStorage.setItem('ganonClickerSave', JSON.stringify(gameState));
+}
+
+function loadGame() {
+  const savedData = localStorage.getItem('ganonClickerSave');
+  if (savedData) {
+    const data = JSON.parse(savedData);
+    clicks = data.clicks || 0;
+    
+    // Restore upgrade counts and recalculate prices
+    if (data.upgradeCounts) {
+      data.upgradeCounts.forEach((count, index) => {
+        if (upgrades[index]) {
+          upgrades[index].count = count;
+          // Recalculate the price based on how many were owned
+          upgrades[index].price = Math.floor(upgrades[index].basePrice * (1.15 ** count));
+        }
+      });
+    }
+    recalcCPS();
+  }
+}
+
+// --- UI & GAMEPLAY ---
 
 function updateUI() {
   clickCountElem.textContent = `Clicks: ${Math.floor(clicks)}`;
@@ -179,13 +208,11 @@ function updateUI() {
   });
 }
 
-// Click event on the main image
 clickerImg.onclick = () => {
-  clicks += baseClick;
+  clicks += 1;
   updateUI();
 };
 
-// Build UI upgrades list
 function buildUpgradesUI() {
   upgradesElem.innerHTML = '';
   upgrades.forEach(upg => {
@@ -194,22 +221,20 @@ function buildUpgradesUI() {
     div.id = `upgrade-${upg.id}`;
     div.innerHTML = `
       <div class="name">${upg.name}</div>
-      <div class="desc">Adds +${upg.cpsIncrease} CPS. Owned: 0</div>
+      <div class="desc">Adds +${upg.cpsIncrease} CPS. Owned: ${upg.count}</div>
       <div class="price">Price: ${upg.price}</div>
     `;
 
-    // Buy upgrade on click
     div.onclick = () => {
       if (clicks >= upg.price) {
         clicks -= upg.price;
         upg.count++;
-        // Upgrade price grows exponentially after purchase
         upg.price = Math.floor(upg.price * 1.15);
         recalcCPS();
         updateUI();
+        saveGame(); // Save immediately on purchase
       }
     };
-
     upgradesElem.appendChild(div);
   });
 }
@@ -222,16 +247,18 @@ function recalcCPS() {
 }
 
 function cpsLoop() {
-  clicks += cps / 10; // Update 10 times per second for smooth increment
+  clicks += cps / 10;
   updateUI();
 }
 
-// Initialize game UI
-buildUpgradesUI();
-updateUI();
+// --- INITIALIZATION ---
 
-setInterval(cpsLoop, 100); // CPS tick every 100ms
+loadGame();         // 1. Load data from localStorage
+buildUpgradesUI();  // 2. Build UI with loaded counts
+updateUI();         // 3. Refresh display
 
+setInterval(cpsLoop, 100);   // Game loop
+setInterval(saveGame, 30000); // Auto-save every 30 seconds
   </script>
 </body>
 </html>
