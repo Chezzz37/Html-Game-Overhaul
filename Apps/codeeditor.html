@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chez's Code Editor</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #00ff88;
+            --secondary: #ff006e;
+            --accent: #00d9ff;
+            --dark-bg: #0a0e27;
+            --card-bg: #16213e;
+            --text: #ffffff;
+            --neon-pink: #ff006e;
+            --neon-cyan: #00d9ff;
+            --neon-lime: #00ff88;
+        }
+
+        body {
+            background: linear-gradient(135deg, var(--dark-bg) 0%, #1a0033 100%);
+            color: var(--text);
+            font-family: 'Courier New', monospace;
+            overflow-x: hidden;
+        }
+
+        /* ANIMATIONS */
+        @keyframes glow {
+            0%, 100% {
+                box-shadow: 0 0 10px var(--primary), 0 0 20px var(--accent);
+            }
+            50% {
+                box-shadow: 0 0 20px var(--primary), 0 0 40px var(--accent), 0 0 60px var(--secondary);
+            }
+        }
+
+        @keyframes pulse-text {
+            0%, 100% {
+                opacity: 1;
+                text-shadow: 0 0 10px var(--primary);
+            }
+            50% {
+                opacity: 0.7;
+                text-shadow: 0 0 20px var(--primary), 0 0 30px var(--accent);
+            }
+        }
+
+        @keyframes float-up {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes rainbow-gradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        @keyframes slide-in {
+            from {
+                transform: translateX(-100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        /* NAVBAR */
+        .navbar {
+            background: rgba(10, 14, 39, 0.95);
+            border-bottom: 2px solid var(--primary);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            backdrop-filter: blur(10px);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
+        }
+
+        .navbar-brand {
+            font-size: 1.8rem;
+            font-weight: bold;
+            animation: pulse-text 2s infinite;
+            color: var(--primary);
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 1rem;
+        }
+
+        /* HOME PAGE */
+        .home-container {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+            animation: float-up 0.8s ease-out;
+        }
+
+        .home-header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .home-header h1 {
+            font-size: 3.5rem;
+            background: linear-gradient(135deg, var(--neon-lime), var(--neon-cyan), var(--neon-pink));
+            background-size: 200% 200%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: rainbow-gradient 3s ease infinite;
+            margin-bottom: 1rem;
+        }
+
+        .home-header p {
+            font-size: 1.2rem;
+            color: var(--accent);
+            margin-bottom: 0.5rem;
+        }
+
+        .language-selection {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin: 2rem 0;
+            width: 100%;
+            max-width: 800px;
+        }
+
+        .lang-card {
+            background: var(--card-bg);
+            border: 2px solid var(--primary);
+            padding: 1.5rem;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+            font-weight: bold;
+            animation: float-up 0.8s ease-out;
+        }
+
+        .lang-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 0 20px var(--primary), inset 0 0 20px rgba(0, 255, 136, 0.2);
+            background: rgba(0, 255, 136, 0.1);
+        }
+
+        /* GRADIENT BUTTON */
+        .gradient-btn {
+            background: linear-gradient(135deg, var(--neon-lime), var(--neon-cyan), var(--neon-pink));
+            background-size: 200% 200%;
+            color: var(--dark-bg);
+            border: none;
+            padding: 0.8rem 1.5rem;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            animation: glow 2s infinite;
+        }
+
+        .gradient-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 30px var(--primary);
+        }
+
+        .gradient-btn:active {
+            transform: scale(0.98);
+        }
+
+        /* EDITOR PAGE */
+        .editor-container {
+            display: flex;
+            height: calc(100vh - 70px);
+            gap: 1rem;
+            padding: 1rem;
+            animation: slide-in 0.5s ease-out;
+        }
+
+        .sidebar {
+            width: 250px;
+            background: var(--card-bg);
+            border: 2px solid var(--accent);
+            border-radius: 10px;
+            padding: 1rem;
+            overflow-y: auto;
+            box-shadow: 0 0 20px rgba(0, 217, 255, 0.2);
+        }
+
+        .sidebar-title {
+            color: var(--primary);
+            font-weight: bold;
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+        }
+
+        .file-item {
+            background: rgba(0, 255, 136, 0.1);
+            padding: 0.8rem;
+            margin-bottom: 0.5rem;
+            border-radius: 5px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid var(--primary);
+            transition: all 0.3s ease;
+        }
+
+        .file-item:hover {
+            background: rgba(0, 255, 136, 0.2);
+            transform: translateX(5px);
+        }
+
+        .file-item.active {
+            background: rgba(0, 255, 136, 0.3);
+            box-shadow: inset 0 0 10px rgba(0, 255, 136, 0.5);
+        }
+
+        .remove-file {
+            background: var(--neon-pink);
+            color: white;
+            border: none;
+            padding: 0.2rem 0.5rem;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .toolbar {
+            background: var(--card-bg);
+            border: 2px solid var(--accent);
+            border-radius: 10px;
+            padding: 1rem;
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            align-items: center;
+            box-shadow: 0 0 15px rgba(0, 217, 255, 0.2);
+        }
+
+        .toolbar select {
+            background: rgba(0, 255, 136, 0.1);
+            color: var(--text);
+            border: 2px solid var(--primary);
+            padding: 0.6rem;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+        }
+
+        .toolbar select:focus {
+            outline: none;
+            box-shadow: 0 0 10px var(--primary);
+        }
+
+        .editor-preview-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .editor-box {
+            background: var(--card-bg);
+            border: 2px solid var(--neon-cyan);
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(0, 217, 255, 0.2);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .editor-box-title {
+            background: rgba(0, 217, 255, 0.2);
+            padding: 0.8rem;
+            border-bottom: 1px solid var(--neon-cyan);
+            color: var(--accent);
+            font-weight: bold;
+        }
+
+        textarea {
+            flex: 1;
+            background: rgba(10, 14, 39, 0.8);
+            color: var(--text);
+            border: none;
+            padding: 1rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.95rem;
+            resize: none;
+            outline: none;
+        }
+
+        .preview-box {
+            background: var(--card-bg);
+            border: 2px solid var(--neon-pink);
+            border-radius: 10px;
+            overflow: auto;
+            box-shadow: 0 0 20px rgba(255, 0, 110, 0.2);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .preview-box-title {
+            background: rgba(255, 0, 110, 0.2);
+            padding: 0.8rem;
+            border-bottom: 1px solid var(--neon-pink);
+            color: var(--secondary);
+            font-weight: bold;
+        }
+
+        #preview {
+            flex: 1;
+            padding: 1rem;
+            overflow: auto;
+        }
+
+        .output-box {
+            background: rgba(0, 255, 136, 0.1);
+            border: 1px solid var(--primary);
+            border-radius: 5px;
+            padding: 1rem;
+            margin-top: 0.5rem;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        /* CHATBOT */
+        .chatbot-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 350px;
+            height: 500px;
+            background: var(--card-bg);
+            border: 2px solid var(--primary);
+            border-radius: 15px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 0 30px rgba(0, 255, 136, 0.3);
+            z-index: 1000;
+            animation: float-up 0.5s ease-out;
+        }
+
+        .chatbot-header {
+            background: linear-gradient(135deg, var(--neon-lime), var(--neon-cyan));
+            color: var(--dark-bg);
+            padding: 1rem;
+            border-radius: 13px 13px 0 0;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .close-chat {
+            background: var(--dark-bg);
+            color: var(--primary);
+            border: none;
+            cursor: pointer;
+            font-size: 1.2rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 3px;
+        }
+
+        .chatbot-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+            background: rgba(10, 14, 39, 0.7);
+        }
+
+        .message {
+            margin-bottom: 0.8rem;
+            padding: 0.8rem;
+            border-radius: 8px;
+            word-wrap: break-word;
+        }
+
+        .message.user {
+            background: rgba(0, 255, 136, 0.2);
+            border-left: 3px solid var(--primary);
+            margin-left: 1rem;
+        }
+
+        .message.bot {
+            background: rgba(0, 217, 255, 0.2);
+            border-left: 3px solid var(--accent);
+            margin-right: 1rem;
+        }
+
+        .chatbot-input {
+            display: flex;
+            gap: 0.5rem;
+            padding: 1rem;
+            border-top: 1px solid var(--primary);
+        }
+
+        .chatbot-input input {
+            flex: 1;
+            background: rgba(0, 255, 136, 0.1);
+            border: 1px solid var(--primary);
+            color: var(--text);
+            padding: 0.6rem;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .chatbot-input input:focus {
+            outline: none;
+            box-shadow: 0 0 10px var(--primary);
+        }
+
+        .chatbot-input button {
+            background: var(--primary);
+            color: var(--dark-bg);
+            border: none;
+            padding: 0.6rem 1rem;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        /* FOOTER */
+        .footer {
+            background: rgba(10, 14, 39, 0.95);
+            border-top: 2px solid var(--primary);
+            padding: 1.5rem;
+            text-align: center;
+            color: var(--accent);
+            font-style: italic;
+            box-shadow: 0 -5px 15px rgba(0, 255, 136, 0.1);
+        }
+
+        /* UTILITIES */
+        .hidden {
+            display: none !important;
+        }
+
+        .btn-small {
+            background: var(--accent);
+            color: var(--dark-bg);
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .btn-small:hover {
+            box-shadow: 0 0 15px var(--accent);
+            transform: scale(1.05);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--card-bg);
+            border: 2px solid var(--primary);
+            border-radius: 15px;
+            padding: 2rem;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 0 40px var(--primary);
+        }
+
+        .modal-content h2 {
+            color: var(--primary);
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-content input {
+            width: 100%;
+            background: rgba(0, 255, 136, 0.1);
+            border: 1px solid var(--primary);
+            color: var(--text);
+            padding: 0.8rem;
+            border-radius: 5px;
+            margin-bottom: 1rem;
+            font-family: 'Courier New', monospace;
+        }
+
+        .modal-content input:focus {
+            outline: none;
+            box-shadow: 0 0 10px var(--primary);
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+        }
+
+        .modal-buttons button {
+            padding: 0.8rem 1.5rem;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .btn-confirm {
+            background: var(--primary);
+            color: var(--dark-bg);
+        }
+
+        .btn-cancel {
+            background: var(--secondary);
+            color: var(--text);
+        }
+
+        @media (max-width: 1024px) {
+            .editor-preview-container {
+                grid-template-columns: 1fr;
+            }
+
+            .editor-container {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+                height: 150px;
+            }
+
+            .chatbot-container {
+                width: 100%;
+                height: 400px;
+                bottom: 0;
+                right: 0;
+                border-radius: 15px 15px 0 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- NAVBAR -->
+    <nav class="navbar">
+        <div class="navbar-brand">⚡ Chez's Code Editor</div>
+        <div class="nav-buttons">
+            <button class="btn-small" onclick="goHome()">Home</button>
+            <button class="btn-small" onclick="toggleChatbot()">💬 AI Help</button>
+        </div>
+    </nav>
+
+    <!-- HOME PAGE -->
+    <div id="homePage" class="home-container">
+        <div class="home-header">
+            <h1>Chez's Code Editor</h1>
+            <p>Advanced Multi-Language Code Editor with AI Assistance</p>
+            <p style="font-size: 1rem; color: var(--primary);">Write, Preview & Execute Code in Real-Time</p>
+        </div>
+
+        <div class="language-selection">
+            <div class="lang-card" onclick="selectLanguage('html')">
+                <div style="font-size: 2rem; margin-bottom: 0.5rem;">🌐</div>
+                <div>HTML/CSS/JS</div>
+            </div>
+            <div class="lang-card" onclick="selectLanguage('python')">
+                <div style="font-size: 2rem; margin-bottom: 0.5rem;">🐍</div>
+                <div>Python</div>
+            </div>
+            <div class="lang-card" onclick="selectLanguage('javascript')">
+                <div style="font-size: 2rem; margin-bottom: 0.5rem;">✨</div>
+                <div>JavaScript</div>
+            </div>
+            <div class="lang-card" onclick="selectLanguage('cpp')">
+                <div style="font-size: 2rem; margin-bottom: 0.5rem;">⚙️</div>
+                <div>C++</div>
+            </div>
+            <div class="lang-card" onclick="selectLanguage('c')">
+                <div style="font-size: 2rem; margin-bottom: 0.5rem;">🔧</div>
+                <div>C</div>
+            </div>
+            <div class="lang-card" onclick="selectLanguage('csharp')">
+                <div style="font-size: 2rem; margin-bottom: 0.5rem;">💎</div>
+                <div>C#</div>
+            </div>
+            <div class="lang-card" onclick="selectLanguage('java')">
+                <div style="font-size: 2rem; margin-bottom: 0.5rem;">☕</div>
+                <div>Java</div>
+            </div>
+            <div class="lang-card" onclick="selectLanguage('typescript')">
+                <div style="font-size: 2rem; margin-bottom: 0.5rem;">📘</div>
+                <div>TypeScript</div>
+            </div>
+            <div class="lang-card" onclick="selectLanguage('sql')">
+                <div style="font-size: 2rem; margin-bottom: 0.5rem;">🗄️</div>
+                <div>SQL</div>
+            </div>
+            <div class="lang-card" onclick="selectLanguage('go')">
+                <div style="font-size: 2rem; margin-bottom: 0.5rem;">🐹</div>
+                <div>Go</div>
+            </div>
+            <div class="lang-card" onclick="selectLanguage('rust')">
+                <div style="font-size: 2rem; margin-bottom: 0.5rem;">🦀</div>
+                <div>Rust</div>
+            </div>
+            <div class="lang-card" onclick="selectLanguage('kotlin')">
+                <div style="font-size: 2rem; margin-bottom: 0.5rem;">🔶</div>
+                <div>Kotlin</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- EDITOR PAGE -->
+    <div id="editorPage" class="hidden">
+        <div class="editor-container">
+            <!-- SIDEBAR - FILES -->
+            <div class="sidebar">
+                <div class="sidebar-title">📁 Files</div>
+                <button class="btn-small" style="width: 100%; margin-bottom: 1rem;" onclick="showNewFileModal()">+ New File</button>
+                <div id="filesList"></div>
+            </div>
+
+            <!-- MAIN CONTENT -->
+            <div class="main-content">
+                <!-- TOOLBAR -->
+                <div class="toolbar">
+                    <select id="languageSelect" onchange="changeLanguage()">
+                        <option value="html">HTML/CSS/JS</option>
+                        <option value="python">Python</option>
+                        <option value="javascript">JavaScript</option>
+                        <option value="cpp">C++</option>
+                        <option value="c">C</option>
+                        <option value="csharp">C#</option>
+                        <option value="java">Java</option>
+                        <option value="typescript">TypeScript</option>
+                        <option value="sql">SQL</option>
+                        <option value="go">Go</option>
+                        <option value="rust">Rust</option>
+                        <option value="kotlin">Kotlin</option>
+                    </select>
+
+                    <button class="gradient-btn" onclick="runCode()">▶ Run Code</button>
+                    <button class="gradient-btn" onclick="previewCode()">👁 Preview</button>
+                    <button class="gradient-btn" onclick="downloadCode()">⬇ Download</button>
+                    <button class="gradient-btn" onclick="deployCode()">🚀 Deploy</button>
+                </div>
+
+                <!-- EDITOR & PREVIEW -->
+                <div class="editor-preview-container">
+                    <div class="editor-box">
+                        <div class="editor-box-title">📝 Code Editor</div>
+                        <textarea id="codeEditor" placeholder="Write your code here..."></textarea>
+                    </div>
+
+                    <div class="preview-box">
+                        <div class="preview-box-title">👁 Live Preview / Output</div>
+                        <div id="preview"></div>
+                        <div id="outputBox" class="output-box" style="display: none;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CHATBOT -->
+    <div id="chatbotContainer" class="chatbot-container hidden">
+        <div class="chatbot-header">
+            🤖 AI Code Assistant
+            <button class="close-chat" onclick="toggleChatbot()">✕</button>
+        </div>
+        <div class="chatbot-messages" id="chatMessages"></div>
+        <div class="chatbot-input">
+            <input type="text" id="chatInput" placeholder="Ask about your code..." onkeypress="handleChatKeypress(event)">
+            <button onclick="sendChatMessage()">Send</button>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+        <p><i>Copyright 2026 by Chez Mustard. All Rights Reserved.</i></p>
+    </footer>
+
+    <!-- MODALS -->
+    <div id="newFileModal" class="modal">
+        <div class="modal-content">
+            <h2>Create New File</h2>
+            <input type="text" id="newFileName" placeholder="Enter file name (e.g., main.cpp)">
+            <div class="modal-buttons">
+                <button class="btn-cancel" onclick="closeNewFileModal()">Cancel</button>
+                <button class="btn-confirm" onclick="createNewFile()">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="deployModal" class="modal">
+        <div class="modal-content">
+            <h2>Deploy Options</h2>
+            <p style="color: var(--accent); margin-bottom: 1rem;">Choose deployment method:</p>
+            <button class="gradient-btn" style="width: 100%; margin-bottom: 0.5rem;" onclick="deployToBlob()">📦 Open in New Tab</button>
+            <button class="gradient-btn" style="width: 100%; margin-bottom: 1rem;" onclick="deployToGithub()">🔗 GitHub Gist</button>
+            <button class="btn-cancel" style="width: 100%;" onclick="closeDeployModal()">Close</button>
+        </div>
+    </div>
+
+    <script>
+        // JDoodle API Configuration
+        const JDOODLE_CLIENT_ID = 'YOUR_JDOODLE_CLIENT_ID';
+        const JDOODLE_CLIENT_SECRET = 'YOUR_JDOODLE_CLIENT_SECRET';
+
+        // State Management
+        const state = {
+            currentLanguage: 'html',
+            files: {
+                'main.html': '<!DOCTYPE html>\n<html>\n<head>\n  <title>Chez Editor</title>\n</head>\n<body>\n  <h1 style="color: #00ff88; text-shadow: 0 0 10px #00ff88;">Hello World!</h1>\n</body>\n</html>'
+            },
+            currentFile: 'main.html',
+            chatHistory: []
+        };
+
+        // HOME PAGE FUNCTIONS
+        function selectLanguage(lang) {
+            state.currentLanguage = lang;
+            goToEditor();
+        }
+
+        function goHome() {
+            document.getElementById('homePage').classList.remove('hidden');
+            document.getElementById('editorPage').classList.add('hidden');
+        }
+
+        function goToEditor() {
+            document.getElementById('homePage').classList.add('hidden');
+            document.getElementById('editorPage').classList.remove('hidden');
+            document.getElementById('languageSelect').value = state.currentLanguage;
+            loadFile(state.currentFile);
+            updateFilesList();
+        }
+
+        // FILE MANAGEMENT
+        function updateFilesList() {
+            const filesList = document.getElementById('filesList');
+            filesList.innerHTML = '';
+            
+            for (const fileName in state.files) {
+                const fileItem = document.createElement('div');
+                fileItem.className = `file-item ${fileName === state.currentFile ? 'active' : ''}`;
+                fileItem.innerHTML = `
+                    <span onclick="loadFile('${fileName}')" style="flex: 1; cursor: pointer;">${fileName}</span>
+                    <button class="remove-file" onclick="deleteFile('${fileName}')">✕</button>
+                `;
+                filesList.appendChild(fileItem);
+            }
+        }
+
+        function loadFile(fileName) {
+            if (state.files[fileName]) {
+                state.currentFile = fileName;
+                document.getElementById('codeEditor').value = state.files[fileName];
+                updateFilesList();
+            }
+        }
+
+        function deleteFile(fileName) {
+            if (Object.keys(state.files).length > 1) {
+                delete state.files[fileName];
+                const remaining = Object.keys(state.files)[0];
+                loadFile(remaining);
+            } else {
+                alert('Cannot delete the last file!');
+            }
+        }
+
+        function showNewFileModal() {
+            document.getElementById('newFileModal').classList.add('show');
+        }
+
+        function closeNewFileModal() {
+            document.getElementById('newFileModal').classList.remove('show');
+            document.getElementById('newFileName').value = '';
+        }
+
+        function createNewFile() {
+            const fileName = document.getElementById('newFileName').value.trim();
+            if (fileName) {
+                state.files[fileName] = '';
+                state.currentFile = fileName;
+                updateFilesList();
+                loadFile(fileName);
+                closeNewFileModal();
+            }
+        }
+
+        // CODE EXECUTION
+        async function runCode() {
+            const code = document.getElementById('codeEditor').value;
+            const lang = state.currentLanguage;
+            const outputBox = document.getElementById('outputBox');
+            const preview = document.getElementById('preview');
+
+            if (lang === 'html') {
+                previewCode();
+                return;
+            }
+
+            outputBox.style.display = 'block';
+            outputBox.innerHTML = '⏳ Executing code...';
+
+            try {
+                const response = await fetch('https://api.jdoodle.com/v1/execute', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        clientId: JDOODLE_CLIENT_ID,
+                        clientSecret: JDOODLE_CLIENT_SECRET,
+                        script: code,
+                        language: getJDoodleLanguage(lang),
+                        versionIndex: '0'
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (result.output) {
+                    outputBox.innerHTML = `<strong>Output:</strong>\n${result.output}`;
+                    if (result.compileOutput) {
+                        outputBox.innerHTML += `\n<strong>Compile:</strong>\n${result.compileOutput}`;
+                    }
+                } else if (result.error) {
+                    outputBox.innerHTML = `<strong>Error:</strong>\n${result.error}`;
+                } else {
+                    outputBox.innerHTML = 'No output';
+                }
+            } catch (error) {
+                outputBox.innerHTML = `<strong>Error:</strong>\n${error.message}`;
+            }
+        }
+
+        function getJDoodleLanguage(lang) {
+            const mapping = {
+                'python': 'python3',
+                'javascript': 'nodejs',
+                'cpp': 'cpp',
+                'c': 'c',
+                'csharp': 'csharp',
+                'java': 'java',
+                'typescript': 'typescript',
+                'go': 'go',
+                'rust': 'rust',
+                'kotlin': 'kotlin'
+            };
+            return mapping[lang] || lang;
+        }
+
+        function previewCode() {
+            const code = document.getElementById('codeEditor').value;
+            const preview = document.getElementById('preview');
+            const outputBox = document.getElementById('outputBox');
+
+            if (state.currentLanguage === 'html') {
+                outputBox.style.display = 'none';
+                preview.innerHTML = code;
+            } else {
+                outputBox.style.display = 'block';
+                outputBox.innerHTML = 'Run code to see output →';
+                preview.innerHTML = '<p style="color: var(--accent);">Use "Run Code" button to execute and see output</p>';
+            }
+        }
+
+        function deployCode() {
+            document.getElementById('deployModal').classList.add('show');
+        }
+
+        function closeDeployModal() {
+            document.getElementById('deployModal').classList.remove('show');
+        }
+
+        function deployToBlob() {
+            const code = document.getElementById('codeEditor').value;
+            
+            if (state.currentLanguage === 'html') {
+                const blob = new Blob([code], { type: 'text/html' });
+                const url = URL.createObjectURL(blob);
+                window.open(url, '_blank');
+            } else {
+                const htmlWrapper = `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Code Output</title>
+    <style>
+        body {
+            background: #0a0e27;
+            color: #00ff88;
+            font-family: 'Courier New', monospace;
+            padding: 2rem;
+            line-height: 1.6;
+        }
+        pre {
+            background: rgba(0, 255, 136, 0.1);
+            border: 1px solid #00ff88;
+            padding: 1rem;
+            border-radius: 8px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1 style="color: #00d9ff; text-shadow: 0 0 10px #00d9ff;">Code Output</h1>
+    <pre>
+Language: ${state.currentLanguage}
+
+Click "Run Code" in the editor to execute.
+    </pre>
+</body>
+</html>
+                `;
+                const blob = new Blob([htmlWrapper], { type: 'text/html' });
+                const url = URL.createObjectURL(blob);
+                window.open(url, '_blank');
+            }
+            closeDeployModal();
+        }
+
+        function deployToGithub() {
+            alert('GitHub integration requires authentication. Copy your code and paste to GitHub Gist manually.');
+            closeDeployModal();
+        }
+
+        // DOWNLOAD
+        function downloadCode() {
+            const code = document.getElementById('codeEditor').value;
+            const fileName = state.currentFile;
+            const element = document.createElement('a');
+            element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(code));
+            element.setAttribute('download', fileName);
+            element.style.display = 'none';
+            document.body.appendChild(element);
+            element.click();
+            document.body.removeChild(element);
+        }
+
+        // CHANGE LANGUAGE
+        function changeLanguage() {
+            state.currentLanguage = document.getElementById('languageSelect').value;
+            const samples = {
+                'html': `<!DOCTYPE html>
+<html>
+<head>
+    <title>Sample</title>
+</head>
+<body>
+    <h1>Welcome to Chez's Editor!</h1>
+</body>
+</html>`,
+                'python': `# Python Sample\nprint("Hello from Chez's Editor!")\nfor i in range(5):\n    print(f"Count: {i}")`,
+                'javascript': `// JavaScript Sample\nconsole.log("Hello from Chez's Editor!");\nfor(let i = 0; i < 5; i++) {\n    console.log(\`Count: \${i}\`);\n}`,
+                'cpp': `#include <iostream>\nusing namespace std;\nint main() {\n    cout << "Hello from Chez's Editor!" << endl;\n    return 0;\n}`,
+                'c': `#include <stdio.h>\nint main() {\n    printf("Hello from Chez's Editor!\\n");\n    return 0;\n}`,
+                'csharp': `using System;\nclass Program {\n    static void Main() {\n        Console.WriteLine("Hello from Chez's Editor!");\n    }\n}`,
+                'java': `public class Main {\n    public static void main(String[] args) {\n        System.out.println("Hello from Chez's Editor!");\n    }\n}`,
+                'typescript': `function greet(name: string): void {\n    console.log(\`Hello, \${name}!\`);\n}\ngreet("Chez's Editor");`,
+                'sql': `SELECT * FROM users WHERE active = 1;\n-- SQL Sample`,
+                'go': `package main\nimport "fmt"\nfunc main() {\n    fmt.Println("Hello from Chez's Editor!")\n}`,
+                'rust': `fn main() {\n    println!("Hello from Chez's Editor!");\n}`,
+                'kotlin': `fun main() {\n    println("Hello from Chez's Editor!")\n}`
+            };
+            document.getElementById('codeEditor').value = samples[state.currentLanguage] || '';
+        }
+
+        // CHATBOT FUNCTIONS
+        function toggleChatbot() {
+            const chatbot = document.getElementById('chatbotContainer');
+            chatbot.classList.toggle('hidden');
+        }
+
+        function sendChatMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            
+            if (message) {
+                addChatMessage(message, 'user');
+                input.value = '';
+                
+                // Simulate AI response with helpful tips
+                setTimeout(() => {
+                    const response = generateAIResponse(message);
+                    addChatMessage(response, 'bot');
+                }, 500);
+            }
+        }
+
+        function addChatMessage(text, sender) {
+            const messagesDiv = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}`;
+            messageDiv.textContent = text;
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function generateAIResponse(userMessage) {
+            const responses = {
+                'hello': 'Hi! I\'m your AI coding assistant. Ask me about debugging, syntax, or coding best practices!',
+                'help': 'I can help you with:\n- Debugging code\n- Language syntax\n- Best practices\n- Algorithm explanations\n- Error fixes',
+                'error': 'Can you share the error message? I\'ll help you fix it!',
+                'code': 'Share your code in the editor and I\'ll provide feedback and suggestions.',
+                'default': 'Great question! In general, let me suggest:\n1. Check your syntax\n2. Review variable names\n3. Test with simple examples\n4. Use debugging tools\n5. Read error messages carefully',
+                'thanks': 'No Problem! Im always here to help!',
+            };
+
+            const lower = userMessage.toLowerCase();
+            for (const key in responses) {
+                if (lower.includes(key)) {
+                    return responses[key];
+                }
+            }
+            return responses.default;
+        }
+
+        function handleChatKeypress(event) {
+            if (event.key === 'Enter') {
+                sendChatMessage();
+            }
+        }
+
+        // INITIALIZE
+        window.addEventListener('load', () => {
+            updateFilesList();
+            loadFile(state.currentFile);
+        });
+
+        // Auto-save to localStorage
+        document.getElementById('codeEditor')?.addEventListener('change', () => {
+            state.files[state.currentFile] = document.getElementById('codeEditor').value;
+            localStorage.setItem('chez_code_files', JSON.stringify(state.files));
+        });
+
+        // Load from localStorage
+        window.addEventListener('load', () => {
+            const saved = localStorage.getItem('chez_code_files');
+            if (saved) {
+                state.files = JSON.parse(saved);
+            }
+        });
+    </script>
+</body>
+</html>
